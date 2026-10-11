@@ -13,20 +13,20 @@ Substitui a edição semi-automática feita hoje no app Edits (Meta), que não t
 
 ## Arquitetura (A)
 
-1. **Upload:** Atalho do iOS (Compartilhar → enviar → aguardar → Salvar no Fotos). Página web como alternativa.
+1. **Upload:** pasta do iCloud Drive vigiada pelo Mac (`Entrada/`); o vídeo editado volta por `Pronto/` e é salvo no Fotos por um Atalho do iOS.
 2. **Silêncios:** detector de voz (VAD Silero ou `silencedetect` do FFmpeg).
 3. **Transcrição:** Whisper via API ou WhisperX, com timestamp preciso por palavra.
 4. **Decisão de edição (Claude API):** recebe frases numeradas com tempos e devolve só os IDs das frases a manter, as palavras a destacar e os pontos de zoom. Para retakes: quando duas frases forem parecidas, mantém a última. O código valida o JSON e corta pelos tempos reais.
 5. **Renderização (FFmpeg):** cortes com folga de 60–120 ms e crossfade de áudio de ~20 ms; zoom 1,0–1,15 a cada 3–5 s, centrado no rosto; legendas em ASS com destaque palavra por palavra.
 6. **Entrega:** o vídeo volta para o celular. A postagem continua manual.
 
-Custo estimado: menos de US$ 0,05 por vídeo de 1 minuto, mais o servidor (US$ 5–10/mês).
+Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. O Mac precisa estar ligado para processar.
 
 ## Decisões em aberto
 
 | Decisão | Recomendação |
 |---|---|
-| Onde roda | Nuvem (Railway ou Render) |
+| ~~Onde roda~~ | **Decidido: no computador (Mac), não na nuvem** |
 | Transcrição | API, escolhida pela precisão do timestamp por palavra |
 | Postagem | Só entregar o arquivo |
 | Estilo | Padrão inicial em arquivo de configuração, ajustado após o primeiro resultado |
