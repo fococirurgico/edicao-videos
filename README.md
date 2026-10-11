@@ -33,8 +33,8 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 
 **Como aparece:**
 - **Print de comentário ou imagem:** cartão sobre o vídeo (você continua falando), com leve zoom de entrada, pelo tempo da frase relacionada (mínimo de ~2,5 s).
-- **Vídeo de depoimento:** tela cheia com o áudio do depoimento e legenda própria; sua fala pausa ou fica em volume baixo.
-- **Privacidade (opcional):** desfocar nomes e fotos de perfil nos prints.
+- **Vídeo de depoimento:** tela dividida. O depoimento roda numa metade, com áudio e legenda próprios; na outra metade, o seu vídeo fica pausado (quadro congelado). Ao terminar o depoimento, o seu vídeo volta a rodar em tela cheia. A posição das metades é configurável.
+- **Privacidade (ligada por padrão):** nomes e fotos de perfil nos prints são desfocados.
 
 ## Decisões em aberto
 
@@ -42,7 +42,7 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 |---|---|
 | ~~Onde roda~~ | **Decidido: no computador (Mac), não na nuvem** |
 | ~~Entrada~~ | **Decidido: álbum do Fotos do iCloud (Para editar → Editados)** |
-| Transcrição | API, escolhida pela precisão do timestamp por palavra |
+| Transcrição | Mac atual é Intel, com troca prevista para Apple Silicon (Mx). Transcrição como módulo trocável: API agora, local (mlx-whisper) no Mx. A confirmar. |
 | Postagem | Só entregar o arquivo |
 | Estilo | Padrão inicial em arquivo de configuração, ajustado após o primeiro resultado |
 
