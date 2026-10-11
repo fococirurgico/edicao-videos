@@ -8,3 +8,7 @@ node_modules/
 __pycache__/
 .venv/
 tmp/
+.venv/
+*.egg-info/
+*.ass
+*.transcricao.json

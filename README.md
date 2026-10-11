@@ -42,7 +42,7 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 |---|---|
 | ~~Onde roda~~ | **Decidido: no computador (Mac), não na nuvem** |
 | ~~Entrada~~ | **Decidido: álbum do Fotos do iCloud (Para editar → Editados)** |
-| Transcrição | Mac atual é Intel, com troca prevista para Apple Silicon (Mx). Transcrição como módulo trocável: API agora, local (mlx-whisper) no Mx. A confirmar. |
+| ~~Transcrição~~ | **Decidido: local nos dois Macs.** Mac Mini Intel com faster-whisper (CPU); MacBook M2 com mlx-whisper (GPU). Escolha automática. |
 | Postagem | Só entregar o arquivo |
 | Estilo | Padrão inicial em arquivo de configuração, ajustado após o primeiro resultado |
 
@@ -52,6 +52,36 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 - **C:** serviço pronto (Submagic, Captions, Shotstack, Creatomate). Pouco código, mas trata mal retakes e prende o estilo.
 - **Espelhamento do iPhone no Mac com o Claude operando o Edits:** possível em teoria, mas lento, impreciso e frágil.
 
+## Como usar (protótipo 0.1)
+
+O que já funciona: corte de silêncios, transcrição local e legendas com a palavra atual destacada, exportando em 1080x1920. Ainda não: álbum do Fotos, decisão pelo Claude (retakes, destaques, zoom) e material de apoio.
+
+Instalação no Mac (uma vez):
+
+```bash
+brew install ffmpeg python@3.12
+git clone https://github.com/fococirurgico/edicao-videos.git
+cd edicao-videos
+python3.12 -m venv .venv
+.venv/bin/pip install -e '.[intel]'   # no Mac Mini Intel
+.venv/bin/pip install -e '.[mx]'      # no MacBook M2
+```
+
+Uso:
+
+```bash
+# Mede a velocidade da transcrição neste Mac (rode duas vezes: a 1ª baixa o modelo)
+.venv/bin/edicao medir ~/Desktop/video.mov
+.venv/bin/edicao medir ~/Desktop/video.mov --modelo medium
+
+# Edita o vídeo; gera video_editado.mp4 ao lado do original
+.venv/bin/edicao processar ~/Desktop/video.mov
+```
+
+Os ajustes (sensibilidade do silêncio, modelo, cores e tamanho da legenda) ficam em `config.toml`.
+
+Testes: `.venv/bin/pip install -e '.[dev]' && .venv/bin/pytest`.
+
 ## Status
 
-Planejamento. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).
+Protótipo 0.1. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).

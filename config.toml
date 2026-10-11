@@ -1,0 +1,37 @@
+# Configuração do pipeline. Os valores aqui são o padrão; ajuste à vontade.
+
+[transcricao]
+# "auto" usa mlx no Apple Silicon (se instalado) e faster-whisper no resto.
+# Opções: "auto", "mlx", "faster-whisper"
+backend = "auto"
+# Tamanhos: "tiny", "base", "small", "medium", "large-v3". Maior = mais preciso e mais lento.
+modelo = "small"
+idioma = "pt"
+
+[cortes]
+# Volume abaixo do qual o áudio conta como silêncio (dB).
+limiar_db = -35
+# Silêncios mais curtos que isso (segundos) não são cortados.
+silencio_minimo = 0.5
+# Folga mantida antes e depois de cada trecho falado (segundos).
+folga = 0.08
+# Fade de áudio em cada emenda (segundos), evita estalos.
+fade_audio = 0.02
+
+[legendas]
+fonte = "Helvetica Neue"
+tamanho = 72
+cor = "#FFFFFF"
+cor_palavra_atual = "#FFD400"
+cor_destaque = "#00E5FF"
+contorno = 6
+palavras_por_linha = 3
+# Distância da legenda até a borda de baixo, em pixels (vídeo 1080x1920).
+margem_inferior = 520
+
+[video]
+largura = 1080
+altura = 1920
+# "libx264" funciona em qualquer Mac; "h264_videotoolbox" usa o hardware do Mac (mais rápido).
+codec = "libx264"
+crf = 20
