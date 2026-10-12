@@ -33,7 +33,11 @@ edição semi-automática que ele fazia no app Edits (Meta). Visão geral e inst
 
 ## Pendência no Notion
 
-Database 📌 Pendências conhecidas, chave `nota:edicao-video-automatica`. Atualize-a ao avançar.
+Database 📌 Pendências conhecidas. Atualize ao avançar (marque Concluído e Concluída em):
+- `nota:edicao-video-automatica`: instalar e testar o protótipo (ação do usuário).
+- `nota:edicao-video-album-fotos`: entrada e saída pelo álbum do Fotos (código).
+- `nota:edicao-video-material-apoio`: material de apoio (código).
+- `nota:edicao-video-zoom-1080p`: limite de zoom em 1080p, decidir depois do teste.
 
 ## Cuidados técnicos
 
