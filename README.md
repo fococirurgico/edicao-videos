@@ -54,6 +54,8 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 
 ## Como usar (protótipo 0.6)
 
+Guia passo a passo para quem vai usar: [MANUAL-DE-USO.md](MANUAL-DE-USO.md).
+
 O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", escolhe palavras de destaque e frases com zoom) e legendas com a palavra atual destacada, exportando em 1080x1920. O zoom alterna três modalidades, escolhidas pelo Claude frase a frase:
 
 - **Seco:** o enquadramento salta na emenda, sem animação. Usado sobretudo logo depois de cortes de fala ou de silêncio; quando um corte deixaria o mesmo enquadramento dos dois lados, o zoom muda sozinho (salto de 0,12) para o corte não parecer um tranco.

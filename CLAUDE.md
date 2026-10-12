@@ -1,7 +1,8 @@
 # edicao-videos
 
 Pipeline que edita sozinho os vídeos curtos (Reels) que o usuário grava no iPhone, substituindo a
-edição semi-automática que ele fazia no app Edits (Meta). Visão geral e instruções de uso no README.
+edição semi-automática que ele fazia no app Edits (Meta). Visão geral e detalhes técnicos no README;
+guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalação ou o uso mudarem).
 
 ## Decisões já tomadas (não reabrir sem o usuário pedir)
 
