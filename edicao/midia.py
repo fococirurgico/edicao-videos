@@ -30,6 +30,26 @@ def dimensoes(video: Path) -> tuple[int, int]:
     return (h, w) if abs(rotacao) % 180 == 90 else (w, h)
 
 
+# Curvas de transferência HDR: HLG (padrão do iPhone, inclusive no modo Cinema) e PQ.
+TRANSFERENCIAS_HDR = ("arib-std-b67", "smpte2084")
+
+
+def transferencia_hdr(video: Path) -> str | None:
+    """Curva de transferência do vídeo se ele for HDR; None se for SDR."""
+    saida = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0",
+         "-show_entries", "stream=color_transfer", "-of", "json", str(video)],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    trc = json.loads(saida)["streams"][0].get("color_transfer")
+    return trc if trc in TRANSFERENCIAS_HDR else None
+
+
+def tem_filtro(nome: str) -> bool:
+    saida = subprocess.run(["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True).stdout
+    return any(linha.split()[1:2] == [nome] for linha in saida.splitlines())
+
+
 def detectar_silencios(video: Path, limiar_db: float, minimo: float) -> list[tuple[float, float]]:
     """Intervalos (início, fim) em que o áudio fica abaixo do limiar por pelo menos `minimo` s."""
     stderr = subprocess.run(

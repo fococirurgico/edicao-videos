@@ -20,10 +20,14 @@ edição semi-automática que ele fazia no app Edits (Meta). Visão geral e inst
   depoimento em vídeo em tela dividida com o vídeo do autor congelado; desfoque de nomes e
   fotos de perfil ligado por padrão. Ainda não implementado.
 - Postagem continua manual.
+- Vídeos em 4K ou 1080p (o usuário vai gravar parte em 1080p para poupar espaço). HDR do iPhone
+  (HLG, inclusive modo Cinema) é convertido para SDR na renderização; saída sempre BT.709.
+- Instalação pelo `instalar.command` (o repositório é privado: o usuário baixa o ZIP e roda o
+  script pelo Terminal); ele cria o app "Editar vídeo" na Mesa, no qual se arrastam os vídeos.
 
 ## Próximos passos
 
-1. Usuário testar a versão atual nos dois Macs com um vídeo real em 4K e relatar tempos e qualidade.
+1. Usuário instalar com o `instalar.command` e testar nos dois Macs (4K e 1080p, modo Cinema com HDR); relatar tempos e qualidade.
 2. Álbum do Fotos (osxphotos): ler "Para editar", importar o resultado em "Editados".
 3. Material de apoio: encaixe pelo Claude, tela dividida, desfoque.
 
@@ -36,5 +40,10 @@ Database 📌 Pendências conhecidas, chave `nota:edicao-video-automatica`. Atua
 - O crop do ffmpeg guarda o tamanho do primeiro quadro (`in_w`/`in_h`); no zoom animado a
   posição do corte é calculada a partir da largura ampliada (ver `render._animacao`).
 - Expressões de suavização entram sempre entre parênteses na fórmula do ffmpeg.
+- Conversão HDR (`render._para_sdr`): roda depois do corte e da escala, em 1080x1920; mobius
+  com param 0,6 manteve tons médios e saturação num HLG simulado. Ainda não conferida em vídeo
+  real do iPhone, nem o comportamento dos realces.
+- Modo Cinema: falta confirmar se o desfoque de fundo vem aplicado no arquivo exportado
+  (no álbum, exportar a versão renderizada, não o original com dados de profundidade).
 - Testes: `.venv/bin/pytest`. O teste de zoom animado compara o primeiro e o último quadro com os
   enquadramentos esperados.

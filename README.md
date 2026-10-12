@@ -52,7 +52,7 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 - **C:** serviço pronto (Submagic, Captions, Shotstack, Creatomate). Pouco código, mas trata mal retakes e prende o estilo.
 - **Espelhamento do iPhone no Mac com o Claude operando o Edits:** possível em teoria, mas lento, impreciso e frágil.
 
-## Como usar (protótipo 0.4)
+## Como usar (protótipo 0.5)
 
 O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", escolhe palavras de destaque e frases com zoom) e legendas com a palavra atual destacada, exportando em 1080x1920. O zoom alterna três modalidades, escolhidas pelo Claude frase a frase:
 
@@ -62,24 +62,20 @@ O que já funciona: corte de silêncios, transcrição local, decisão pelo Clau
 
 O zoom vai de 1,0 a 1,4 e acompanha os olhos em todas as modalidades: eles ficam centralizados na horizontal e um pouco acima do centro (42% da altura), e se algum olho fosse sair do quadro o zoom daquele trecho diminui. Ainda não: álbum do Fotos e material de apoio.
 
-Dica: grave em 4K no iPhone. Com 1080p, o zoom de 1,4 amplia a imagem e ela perde nitidez; em 4K sobra resolução.
+Resolução: grave em 4K quando puder. Em 1080p funciona, mas no zoom de 1,4 a imagem é ampliada 1,4 vez e perde um pouco de nitidez (o mesmo que acontece no Edits).
+
+HDR: o iPhone grava em HDR (HLG) por padrão, inclusive no modo Cinema. O pipeline detecta isso e converte para SDR na renderização, sem deixar a imagem lavada; não é preciso desligar o HDR. A saída é sempre SDR (BT.709), que o Instagram exibe de forma previsível.
 
 A decisão usa a sua assinatura do Claude por meio do Claude Code instalado no Mac (`claude -p`), sem chave de API. Se o Claude Code falhar ou o limite de uso estourar, o vídeo sai mesmo assim, só com o corte de silêncios. A API fica como opção em `config.toml` (`[decisao] backend = "api"`).
 
 Instalação no Mac (uma vez):
 
-```bash
-brew install ffmpeg python@3.12
-git clone https://github.com/fococirurgico/edicao-videos.git
-cd edicao-videos
-python3.12 -m venv .venv
-.venv/bin/pip install -e '.[intel]'   # no Mac Mini Intel
-.venv/bin/pip install -e '.[mx]'      # no MacBook M2
-```
+1. No GitHub, abra o repositório, clique em **Code → Download ZIP** e descompacte. Mova a pasta `edicao-videos-main` para um lugar fixo (por exemplo, Documentos): o app de editar aponta para ela.
+2. Abra o Terminal, digite `bash ` (com espaço), arraste o arquivo `instalar.command` da pasta para a janela e tecle Enter.
 
-Instale também o Claude Code (instruções em https://code.claude.com/docs) e rode `claude` uma vez no Terminal para fazer login com a sua conta. O pipeline reaproveita esse login.
+O instalador cuida de tudo: Homebrew, ffmpeg e Python; o Whisper certo para o Mac (Intel ou Apple Silicon); o Claude Code com login na sua conta; o download do modelo de transcrição; e o app **Editar vídeo** na Mesa. Para editar, arraste o vídeo para esse ícone. Rodar o instalador de novo é seguro: ele só instala o que faltar.
 
-Uso:
+Uso pelo Terminal, dentro da pasta do projeto:
 
 ```bash
 # Mede a velocidade da transcrição neste Mac (rode duas vezes: a 1ª baixa o modelo)
@@ -101,4 +97,4 @@ Testes: `.venv/bin/pip install -e '.[dev]' && .venv/bin/pytest`.
 
 ## Status
 
-Protótipo 0.4. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).
+Protótipo 0.5. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).

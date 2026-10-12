@@ -228,3 +228,42 @@ def test_render_com_zoom_animado(tmp_path):
     assert diferenca(_quadro(saidas["anim"], 0), _quadro(saidas["ini"], 0)) < 8
     assert diferenca(_quadro(saidas["anim"], 25), _quadro(saidas["fim"], 25)) < 8
     assert diferenca(_quadro(saidas["ini"], 0), _quadro(saidas["fim"], 0)) > 15
+
+
+def _saturacao_media(video):
+    saida = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-i", str(video), "-vf", "format=yuv420p,signalstats,metadata=print:file=-",
+         "-frames:v", "1", "-f", "null", "-"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    return float(saida.split("lavfi.signalstats.SATAVG=")[1].split()[0])
+
+
+def test_hdr_do_iphone_sai_em_sdr_sem_ficar_lavado(tmp_path):
+    from edicao import render
+    if not midia.tem_filtro("zscale"):
+        pytest.skip("ffmpeg sem zscale")
+    sdr, hlg = tmp_path / "sdr.mp4", tmp_path / "hlg.mov"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=s=360x640:d=1:r=30",
+                    "-f", "lavfi", "-i", "sine=d=1", "-shortest", "-c:v", "libx264", "-c:a", "aac", str(sdr)],
+                   check=True)
+    # Simula a gravação HDR do iPhone: HEVC 10 bits, BT.2020, HLG.
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(sdr), "-vf",
+                    "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv,"
+                    "zscale=t=linear:npl=203,format=gbrpf32le,zscale=p=bt2020,"
+                    "zscale=t=arib-std-b67:npl=203:m=bt2020nc:r=tv,format=yuv420p10le",
+                    "-c:v", "libx265", "-x265-params", "log-level=error", "-color_primaries", "bt2020",
+                    "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc", "-c:a", "copy", str(hlg)],
+                   check=True)
+    assert midia.transferencia_hdr(hlg) == "arib-std-b67"
+    assert midia.transferencia_hdr(sdr) is None
+
+    cfg_video = config.carregar()["video"]
+    trecho = [plano.Trecho(0, 1, 1.0, quadro=(0, 0, 360, 640))]
+    convertido, cru = tmp_path / "convertido.mp4", tmp_path / "cru.mp4"
+    render.renderizar(hlg, trecho, None, convertido, cfg_video, 0.02, (360, 640), "arib-std-b67")
+    render.renderizar(hlg, trecho, None, cru, cfg_video, 0.02, (360, 640))
+    original = _saturacao_media(sdr)
+    # Sem conversão a imagem perde mais da metade da cor; convertida, fica perto do original.
+    assert _saturacao_media(cru) < 0.5 * original
+    assert _saturacao_media(convertido) > 0.9 * original

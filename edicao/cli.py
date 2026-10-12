@@ -5,6 +5,7 @@
 """
 
 import argparse
+import os
 import platform
 import time
 from pathlib import Path
@@ -75,8 +76,12 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
         encoding="utf-8",
     )
 
-    print("5/5 renderizando…")
-    render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H))
+    hdr = midia.transferencia_hdr(video)
+    if hdr and not midia.tem_filtro("zscale"):
+        print("    aviso: vídeo HDR, mas este ffmpeg não tem o filtro zscale; as cores podem sair lavadas")
+        hdr = None
+    print("5/5 renderizando…" + (" (convertendo HDR para SDR)" if hdr else ""))
+    render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H), hdr)
     print(f"pronto: {saida}")
 
 
@@ -92,7 +97,15 @@ def medir(video: Path, cfg: dict) -> None:
     print("(a primeira execução inclui o download do modelo; rode de novo para medir)")
 
 
+def _completar_path() -> None:
+    """Garante ffmpeg (Homebrew) e claude no PATH mesmo quando aberto pelo app de arrastar."""
+    extras = ["/opt/homebrew/bin", "/usr/local/bin", str(Path.home() / ".local/bin")]
+    atual = os.environ.get("PATH", "").split(os.pathsep)
+    os.environ["PATH"] = os.pathsep.join(atual + [p for p in extras if p not in atual])
+
+
 def main() -> None:
+    _completar_path()
     ap = argparse.ArgumentParser(prog="edicao")
     ap.add_argument("--config", type=Path, help="arquivo de configuração (padrão: config.toml)")
     sub = ap.add_subparsers(dest="comando", required=True)

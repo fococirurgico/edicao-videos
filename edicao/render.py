@@ -17,6 +17,20 @@ _SUAVIZACAO = {
 }
 
 
+def _para_sdr(transferencia: str) -> str:
+    """Converte HDR (BT.2020, HLG ou PQ) para SDR BT.709 sem deixar a imagem lavada.
+
+    Mobius mantém os tons médios (pele) praticamente iguais e só comprime os realces.
+    Roda depois do corte e da escala, em 1080x1920, para custar menos.
+    """
+    return (
+        f"setparams=color_primaries=bt2020:color_trc={transferencia}:colorspace=bt2020nc,"
+        "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,"
+        "tonemap=tonemap=mobius:param=0.6:desat=0,"
+        "zscale=t=bt709:m=bt709:r=tv,format=yuv420p"
+    )
+
+
 def _animacao(t: Trecho, larg: int, alt: int, W: int, H: int) -> str:
     """Zoom animado: amplia a imagem quadro a quadro e corta a janela que segue os olhos."""
     x0, y0, w0, _ = t.quadro_inicial
@@ -39,8 +53,11 @@ def _animacao(t: Trecho, larg: int, alt: int, W: int, H: int) -> str:
 def renderizar(
     video: Path, trechos: list[Trecho], legendas_ass: Path | None, saida: Path,
     cfg_video: dict, fade_audio: float, dimensoes: tuple[int, int] | None = None,
+    hdr: str | None = None,
 ) -> None:
+    """hdr: curva de transferência do original (ver midia.transferencia_hdr); None se SDR."""
     larg, alt = cfg_video["largura"], cfg_video["altura"]
+    cor = f",{_para_sdr(hdr)}" if hdr else ""
     filtros = []
     for i, t in enumerate(trechos):
         fade = min(fade_audio, t.duracao / 2)
@@ -59,7 +76,7 @@ def renderizar(
             )
         filtros.append(
             f"[0:v]trim=start={t.inicio:.3f}:end={t.fim:.3f},setpts=PTS-STARTPTS,"
-            f"{enquadramento},setsar=1[v{i}]"
+            f"{enquadramento}{cor},setsar=1[v{i}]"
         )
         filtros.append(
             f"[0:a]atrim=start={t.inicio:.3f}:end={t.fim:.3f},asetpts=PTS-STARTPTS,"
@@ -79,6 +96,7 @@ def renderizar(
         ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(video),
          "-filter_complex", ";".join(filtros), "-map", "[vout]", "-map", "[ac]",
          "-c:v", codec, *qualidade, "-pix_fmt", "yuv420p",
+         "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
          "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(saida)],
         check=True,
     )
