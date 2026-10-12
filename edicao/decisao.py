@@ -49,7 +49,7 @@ ESQUEMA = {
                 "required": ["frase", "nivel"],
                 "additionalProperties": False,
             },
-            "description": "Frases com zoom de ênfase e o nível (1.0 a 1.2).",
+            "description": "Frases com zoom e o nível (1.0 a 1.4).",
         },
     },
     "required": ["manter", "destaques", "zoom"],
@@ -68,9 +68,10 @@ Decida a edição:
    - Não remova conteúdo só para encurtar: na dúvida, mantenha.
 2. destaques: palavras-chave que merecem cor na legenda (números, termos técnicos, a ideia central).
    No máximo uma a cada 5 segundos. Escreva exatamente como aparecem na transcrição.
-3. zoom: frases de ênfase (início do vídeo, frase de impacto, chamada para ação) que ganham
-   aproximação, com nível entre 1.08 e 1.15. Evite zoom em muitas frases seguidas; cerca de
-   uma frase a cada três é um bom ritmo.
+3. zoom: frases que ganham aproximação, com nível entre 1.0 e {zoom_maximo}, para dar ritmo.
+   Use aproximações leves (1.1 a 1.2) para variar o enquadramento e as maiores (até {zoom_maximo})
+   só nos momentos mais fortes: gancho inicial, frase de impacto, chamada para ação.
+   Evite o mesmo nível em frases seguidas; cerca de uma frase a cada duas ou três é um bom ritmo.
 
 Transcrição:
 """
@@ -94,12 +95,12 @@ def _frase(id_: int, palavras: list[Palavra]) -> Frase:
     return Frase(id_, " ".join(p.texto for p in palavras), palavras[0].inicio, palavras[-1].fim, palavras)
 
 
-def montar_prompt(frases: list[Frase]) -> str:
+def montar_prompt(frases: list[Frase], zoom_maximo: float = 1.4) -> str:
     linhas = [f"[{f.id}] ({f.inicio:.1f}s–{f.fim:.1f}s) {f.texto}" for f in frases]
-    return INSTRUCOES + "\n".join(linhas)
+    return INSTRUCOES.format(zoom_maximo=zoom_maximo) + "\n".join(linhas)
 
 
-def validar(bruto: dict, frases: list[Frase]) -> Decisao:
+def validar(bruto: dict, frases: list[Frase], zoom_maximo: float = 1.4) -> Decisao:
     """Descarta IDs e palavras inexistentes; nunca devolve um vídeo vazio."""
     ids = {f.id for f in frases}
     manter = sorted({i for i in bruto.get("manter", []) if i in ids}) or sorted(ids)
@@ -110,7 +111,7 @@ def validar(bruto: dict, frases: list[Frase]) -> Decisao:
     mantidas = {norm(p.texto) for f in frases if f.id in manter for p in f.palavras}
     destaques = [d for d in bruto.get("destaques", []) if norm(d) and norm(d) in mantidas]
     zoom = {
-        z["frase"]: min(1.2, max(1.0, float(z["nivel"])))
+        z["frase"]: min(zoom_maximo, max(1.0, float(z["nivel"])))
         for z in bruto.get("zoom", [])
         if z.get("frase") in manter and "nivel" in z
     }
@@ -122,7 +123,8 @@ def decidir(frases: list[Frase], cfg: dict) -> Decisao:
     backend = cfg["backend"]
     if backend == "nenhum" or not frases:
         return Decisao([f.id for f in frases], [], {})
-    prompt = montar_prompt(frases)
+    zoom_maximo = cfg.get("zoom_maximo", 1.4)
+    prompt = montar_prompt(frases, zoom_maximo)
     try:
         if backend == "assinatura":
             bruto = _via_assinatura(prompt, cfg)
@@ -133,7 +135,7 @@ def decidir(frases: list[Frase], cfg: dict) -> Decisao:
     except Exception as e:  # o vídeo sai mesmo assim, só sem a edição do Claude
         print(f"    aviso: decisão do Claude falhou ({e}); mantendo todas as frases")
         return Decisao([f.id for f in frases], [], {})
-    return validar(bruto, frases)
+    return validar(bruto, frases, zoom_maximo)
 
 
 def _via_assinatura(prompt: str, cfg: dict) -> dict:

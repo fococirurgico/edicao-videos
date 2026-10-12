@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from edicao import config, decisao, legendas, midia, plano
+from edicao import config, decisao, legendas, midia, plano, rosto
 from edicao.cli import processar
 from edicao.transcricao import Palavra, salvar
 
@@ -97,7 +97,7 @@ def test_validar_descarta_ids_e_palavras_inexistentes():
     )
     assert d.manter == [2]
     assert d.destaques == ["dois"]          # "um" foi cortada, "inventada" não existe
-    assert d.zoom == {2: 1.2}               # nível limitado; zoom em frase cortada ignorado
+    assert d.zoom == {2: 1.4}               # nível limitado a 1,4; zoom em frase cortada ignorado
     # Resposta vazia nunca apaga o vídeo inteiro.
     assert decisao.validar({"manter": []}, frases).manter == [1, 2]
 
@@ -126,3 +126,36 @@ def test_falha_do_claude_nao_impede_o_video(monkeypatch):
         raise FileNotFoundError("claude")
     monkeypatch.setattr(decisao, "_via_assinatura", falha)
     assert decisao.decidir(frases, {"backend": "assinatura"}).manter == [1]
+
+
+def _olhos(x, y, t=0.5, distancia=0.04):
+    return rosto.Olhos(t, (x - distancia / 2, y), (x + distancia / 2, y))
+
+
+def test_enquadra_olhos_centralizados_e_um_pouco_acima():
+    # Imagem horizontal 1920x1080, olhos à direita: a janela 9:16 acompanha os olhos.
+    q = rosto.enquadrar([_olhos(0.7, 0.4)], 0, 1, 1.2, 1920, 1080, 9 / 16, 0.42, 0.12)
+    assert q.zoom == 1.2
+    olho_x = (0.7 * 1920 - q.x) / q.largura
+    olho_y = (0.4 * 1080 - q.y) / q.altura
+    assert olho_x == pytest.approx(0.5, abs=0.01)
+    assert olho_y == pytest.approx(0.42, abs=0.01)
+
+
+def test_zoom_1_em_video_vertical_nao_move():
+    q = rosto.enquadrar([_olhos(0.3, 0.3)], 0, 1, 1.0, 1080, 1920, 9 / 16, 0.42, 0.12)
+    assert (q.x, q.y, q.largura, q.altura) == (0, 0, 1080, 1920)
+
+
+def test_olhos_na_borda_reduzem_o_zoom_para_caber():
+    # Olhos colados na borda esquerda: com 1,4 sairiam da margem; o zoom diminui.
+    q = rosto.enquadrar([_olhos(0.06, 0.4, distancia=0.08)], 0, 1, 1.4, 1080, 1920, 9 / 16, 0.42, 0.12)
+    assert q.zoom < 1.4
+    assert q.x == 0
+    for px in (0.02, 0.10):
+        assert (px * 1080 - q.x) / q.largura >= 0.12 or q.zoom == 1.0
+
+
+def test_sem_rosto_centraliza():
+    q = rosto.enquadrar([], 0, 1, 1.25, 1080, 1920, 9 / 16, 0.42, 0.12)
+    assert q.x == pytest.approx((1080 - q.largura) / 2, abs=1)

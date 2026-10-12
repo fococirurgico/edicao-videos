@@ -20,6 +20,18 @@ modelo = ""
 modelo_api = "claude-opus-5-5"
 # Tempo máximo de espera pela resposta (segundos).
 timeout = 300
+# Maior zoom que o Claude pode pedir.
+zoom_maximo = 1.4
+
+[enquadramento]
+# Acompanha os olhos ao aplicar o zoom. false = zoom sempre centralizado na imagem.
+rastrear_rosto = true
+# Altura dos olhos no quadro final, a partir do topo (0,5 = centro; 0,42 = um pouco acima).
+altura_olhos = 0.42
+# Distância mínima dos olhos até as bordas do quadro; se não couber, o zoom do trecho diminui.
+margem_olhos = 0.12
+# Quadros analisados por segundo para achar os olhos.
+amostras_por_segundo = 5
 
 [cortes]
 # Volume abaixo do qual o áudio conta como silêncio (dB).

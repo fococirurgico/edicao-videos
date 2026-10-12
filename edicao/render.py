@@ -18,12 +18,20 @@ def renderizar(
     filtros = []
     for i, t in enumerate(trechos):
         fade = min(fade_audio, t.duracao / 2)
-        # Enquadra em 9:16 (cortando o excesso) já com o zoom do trecho, centrado.
-        z = t.zoom
+        if t.quadro:
+            # Janela calculada a partir dos olhos (ver rosto.enquadrar).
+            x, y, w, h = t.quadro
+            enquadramento = f"crop={w}:{h}:{x}:{y},scale={larg}:{alt}:flags=lanczos"
+        else:
+            # Sem rastreamento: zoom centralizado, cortando o excesso para 9:16.
+            z = t.zoom
+            enquadramento = (
+                f"scale={round(larg * z / 2) * 2}:{round(alt * z / 2) * 2}:force_original_aspect_ratio=increase,"
+                f"crop={larg}:{alt}"
+            )
         filtros.append(
             f"[0:v]trim=start={t.inicio:.3f}:end={t.fim:.3f},setpts=PTS-STARTPTS,"
-            f"scale={round(larg * z / 2) * 2}:{round(alt * z / 2) * 2}:force_original_aspect_ratio=increase,"
-            f"crop={larg}:{alt},setsar=1[v{i}]"
+            f"{enquadramento},setsar=1[v{i}]"
         )
         filtros.append(
             f"[0:a]atrim=start={t.inicio:.3f}:end={t.fim:.3f},asetpts=PTS-STARTPTS,"

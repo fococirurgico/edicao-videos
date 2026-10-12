@@ -10,6 +10,8 @@ class Trecho:
     inicio: float
     fim: float
     zoom: float = 1.0
+    # Janela de corte (x, y, largura, altura) na imagem original; None = centralizado.
+    quadro: tuple[int, int, int, int] | None = None
 
     @property
     def duracao(self) -> float:

@@ -17,7 +17,7 @@ Substitui a edição semi-automática feita hoje no app Edits (Meta), que não t
 2. **Silêncios:** detector de voz (VAD Silero ou `silencedetect` do FFmpeg).
 3. **Transcrição:** Whisper via API ou WhisperX, com timestamp preciso por palavra.
 4. **Decisão de edição (Claude, pela assinatura via Claude Code; API opcional):** recebe frases numeradas com tempos e devolve só os IDs das frases a manter, as palavras a destacar e os pontos de zoom. Para retakes: quando duas frases forem parecidas, mantém a última. O código valida o JSON e corta pelos tempos reais.
-5. **Renderização (FFmpeg):** cortes com folga de 60–120 ms e crossfade de áudio de ~20 ms; zoom 1,0–1,15 a cada 3–5 s, centrado no rosto; legendas em ASS com destaque palavra por palavra.
+5. **Renderização (FFmpeg):** cortes com folga e fade de áudio nas emendas; zoom de 1,0 a 1,4 enquadrado pelos olhos (detector YuNet do OpenCV), com os olhos um pouco acima do centro; legendas em ASS com destaque palavra por palavra.
 6. **Entrega:** o vídeo volta para o celular. A postagem continua manual.
 
 Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. O Mac precisa estar ligado para processar.
@@ -52,9 +52,11 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 - **C:** serviço pronto (Submagic, Captions, Shotstack, Creatomate). Pouco código, mas trata mal retakes e prende o estilo.
 - **Espelhamento do iPhone no Mac com o Claude operando o Edits:** possível em teoria, mas lento, impreciso e frágil.
 
-## Como usar (protótipo 0.2)
+## Como usar (protótipo 0.3)
 
-O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", escolhe palavras de destaque e frases com zoom) e legendas com a palavra atual destacada, exportando em 1080x1920. Ainda não: álbum do Fotos, zoom centrado no rosto e material de apoio.
+O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", escolhe palavras de destaque e frases com zoom) e legendas com a palavra atual destacada, exportando em 1080x1920. O zoom vai de 1,0 a 1,4 e acompanha os olhos: eles ficam centralizados na horizontal e um pouco acima do centro (42% da altura), e se algum olho fosse sair do quadro o zoom daquele trecho diminui. Ainda não: álbum do Fotos e material de apoio.
+
+Dica: grave em 4K no iPhone. Com 1080p, o zoom de 1,4 amplia a imagem e ela perde nitidez; em 4K sobra resolução.
 
 A decisão usa a sua assinatura do Claude por meio do Claude Code instalado no Mac (`claude -p`), sem chave de API. Se o Claude Code falhar ou o limite de uso estourar, o vídeo sai mesmo assim, só com o corte de silêncios. A API fica como opção em `config.toml` (`[decisao] backend = "api"`).
 
@@ -93,4 +95,4 @@ Testes: `.venv/bin/pip install -e '.[dev]' && .venv/bin/pytest`.
 
 ## Status
 
-Protótipo 0.2. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).
+Protótipo 0.3. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).

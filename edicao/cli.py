@@ -9,7 +9,7 @@ import platform
 import time
 from pathlib import Path
 
-from . import config, decisao, legendas, midia, plano, render, transcricao
+from . import config, decisao, legendas, midia, plano, render, rosto, transcricao
 
 
 def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None) -> None:
@@ -40,6 +40,21 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     cortadas = len(frases) - len(d.manter)
     print(f"    {cortadas} frases cortadas, {len(d.destaques)} destaques, {len(d.zoom)} zooms")
     print(f"    {total:.1f}s → {sum(t.duracao for t in trechos):.1f}s")
+
+    e = cfg["enquadramento"]
+    if e["rastrear_rosto"]:
+        print("    procurando os olhos para enquadrar o zoom…")
+        W, H = midia.dimensoes(video)
+        olhos = rosto.detectar_olhos(video, W, H, e["amostras_por_segundo"])
+        v = cfg["video"]
+        reduzidos = 0
+        for t in trechos:
+            q = rosto.enquadrar(olhos, t.inicio, t.fim, t.zoom, W, H, v["largura"] / v["altura"],
+                                e["altura_olhos"], e["margem_olhos"])
+            reduzidos += q.zoom < t.zoom
+            t.zoom, t.quadro = q.zoom, (q.x, q.y, q.largura, q.altura)
+        print(f"    olhos encontrados em {len(olhos)} quadros"
+              + (f"; zoom reduzido em {reduzidos} trechos para manter os olhos no quadro" if reduzidos else ""))
 
     print("4/5 gerando legendas…")
     v = cfg["video"]
