@@ -16,7 +16,7 @@ Substitui a edição semi-automática feita hoje no app Edits (Meta), que não t
 1. **Entrada e saída pelo Fotos do iCloud:** no iPhone, o vídeo (e o material de apoio) vai para o álbum **Para editar**. O Mac lê o álbum com `osxphotos`, processa e importa o resultado no álbum **Editados**, que sincroniza de volta para o iPhone.
 2. **Silêncios:** detector de voz (VAD Silero ou `silencedetect` do FFmpeg).
 3. **Transcrição:** Whisper via API ou WhisperX, com timestamp preciso por palavra.
-4. **Decisão de edição (Claude API):** recebe frases numeradas com tempos e devolve só os IDs das frases a manter, as palavras a destacar e os pontos de zoom. Para retakes: quando duas frases forem parecidas, mantém a última. O código valida o JSON e corta pelos tempos reais.
+4. **Decisão de edição (Claude, pela assinatura via Claude Code; API opcional):** recebe frases numeradas com tempos e devolve só os IDs das frases a manter, as palavras a destacar e os pontos de zoom. Para retakes: quando duas frases forem parecidas, mantém a última. O código valida o JSON e corta pelos tempos reais.
 5. **Renderização (FFmpeg):** cortes com folga de 60–120 ms e crossfade de áudio de ~20 ms; zoom 1,0–1,15 a cada 3–5 s, centrado no rosto; legendas em ASS com destaque palavra por palavra.
 6. **Entrega:** o vídeo volta para o celular. A postagem continua manual.
 
@@ -52,9 +52,11 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 - **C:** serviço pronto (Submagic, Captions, Shotstack, Creatomate). Pouco código, mas trata mal retakes e prende o estilo.
 - **Espelhamento do iPhone no Mac com o Claude operando o Edits:** possível em teoria, mas lento, impreciso e frágil.
 
-## Como usar (protótipo 0.1)
+## Como usar (protótipo 0.2)
 
-O que já funciona: corte de silêncios, transcrição local e legendas com a palavra atual destacada, exportando em 1080x1920. Ainda não: álbum do Fotos, decisão pelo Claude (retakes, destaques, zoom) e material de apoio.
+O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", escolhe palavras de destaque e frases com zoom) e legendas com a palavra atual destacada, exportando em 1080x1920. Ainda não: álbum do Fotos, zoom centrado no rosto e material de apoio.
+
+A decisão usa a sua assinatura do Claude por meio do Claude Code instalado no Mac (`claude -p`), sem chave de API. Se o Claude Code falhar ou o limite de uso estourar, o vídeo sai mesmo assim, só com o corte de silêncios. A API fica como opção em `config.toml` (`[decisao] backend = "api"`).
 
 Instalação no Mac (uma vez):
 
@@ -67,6 +69,8 @@ python3.12 -m venv .venv
 .venv/bin/pip install -e '.[mx]'      # no MacBook M2
 ```
 
+Instale também o Claude Code (instruções em https://code.claude.com/docs) e rode `claude` uma vez no Terminal para fazer login com a sua conta. O pipeline reaproveita esse login.
+
 Uso:
 
 ```bash
@@ -76,7 +80,12 @@ Uso:
 
 # Edita o vídeo; gera video_editado.mp4 ao lado do original
 .venv/bin/edicao processar ~/Desktop/video.mov
+
+# Sem a decisão do Claude (só corta silêncios e legenda)
+.venv/bin/edicao processar ~/Desktop/video.mov --sem-claude
 ```
+
+Ao lado do vídeo editado ficam `*.transcricao.json` (o texto com tempos) e `*.decisao.json` (o que o Claude decidiu manter, destacar e aproximar), úteis para conferir a edição.
 
 Os ajustes (sensibilidade do silêncio, modelo, cores e tamanho da legenda) ficam em `config.toml`.
 
@@ -84,4 +93,4 @@ Testes: `.venv/bin/pip install -e '.[dev]' && .venv/bin/pytest`.
 
 ## Status
 
-Protótipo 0.1. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).
+Protótipo 0.2. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).

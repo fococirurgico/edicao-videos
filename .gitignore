@@ -12,3 +12,4 @@ tmp/
 *.egg-info/
 *.ass
 *.transcricao.json
+*.decisao.json

@@ -18,8 +18,12 @@ def renderizar(
     filtros = []
     for i, t in enumerate(trechos):
         fade = min(fade_audio, t.duracao / 2)
+        # Enquadra em 9:16 (cortando o excesso) já com o zoom do trecho, centrado.
+        z = t.zoom
         filtros.append(
-            f"[0:v]trim=start={t.inicio:.3f}:end={t.fim:.3f},setpts=PTS-STARTPTS[v{i}]"
+            f"[0:v]trim=start={t.inicio:.3f}:end={t.fim:.3f},setpts=PTS-STARTPTS,"
+            f"scale={round(larg * z / 2) * 2}:{round(alt * z / 2) * 2}:force_original_aspect_ratio=increase,"
+            f"crop={larg}:{alt},setsar=1[v{i}]"
         )
         filtros.append(
             f"[0:a]atrim=start={t.inicio:.3f}:end={t.fim:.3f},asetpts=PTS-STARTPTS,"
@@ -28,11 +32,7 @@ def renderizar(
     entradas = "".join(f"[v{i}][a{i}]" for i in range(len(trechos)))
     filtros.append(f"{entradas}concat=n={len(trechos)}:v=1:a=1[vc][ac]")
 
-    # Preenche a tela 9:16 cortando o excesso (vídeo do iPhone na vertical já encaixa direto).
-    final = (
-        f"[vc]scale={larg}:{alt}:force_original_aspect_ratio=increase,"
-        f"crop={larg}:{alt},setsar=1"
-    )
+    final = "[vc]null"
     if legendas_ass:
         final += f",subtitles=filename='{_escapar_caminho_filtro(legendas_ass)}'"
     filtros.append(final + "[vout]")

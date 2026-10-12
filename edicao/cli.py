@@ -1,6 +1,6 @@
 """Linha de comando.
 
-  edicao processar VIDEO     edita um vídeo (cortes de silêncio + legendas)
+  edicao processar VIDEO     edita um vídeo (cortes, legendas, destaques e zoom)
   edicao medir VIDEO         mede o tempo da transcrição local neste Mac
 """
 
@@ -9,38 +9,48 @@ import platform
 import time
 from pathlib import Path
 
-from . import config, legendas, midia, plano, render, transcricao
+from . import config, decisao, legendas, midia, plano, render, transcricao
 
 
 def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None) -> None:
     c = cfg["cortes"]
     total = midia.duracao(video)
 
-    print("1/4 detectando silêncios…")
+    print("1/5 detectando silêncios…")
     silencios = midia.detectar_silencios(video, c["limiar_db"], c["silencio_minimo"])
     trechos = plano.trechos_mantidos(total, silencios, c["folga"])
-    mantido = sum(t.duracao for t in trechos)
-    print(f"    {len(silencios)} silêncios; {total:.1f}s → {mantido:.1f}s")
+    print(f"    {len(silencios)} silêncios")
 
     if transcricao_json:
-        print("2/4 usando transcrição salva…")
+        print("2/5 usando transcrição salva…")
         palavras = transcricao.carregar(transcricao_json)
     else:
         backend = transcricao.escolher_backend(cfg["transcricao"]["backend"])
-        print(f"2/4 transcrevendo localmente ({backend}, modelo {cfg['transcricao']['modelo']})…")
+        print(f"2/5 transcrevendo localmente ({backend}, modelo {cfg['transcricao']['modelo']})…")
         palavras = transcricao.transcrever(video, cfg["transcricao"])
         transcricao.salvar(palavras, saida.with_suffix(".transcricao.json"))
     print(f"    {len(palavras)} palavras")
 
-    print("3/4 gerando legendas…")
+    frases = decisao.dividir_em_frases(palavras)
+    print(f"3/5 decidindo a edição ({cfg['decisao']['backend']}, {len(frases)} frases)…")
+    d = decisao.decidir(frases, cfg["decisao"])
+    decisao.salvar(d, frases, saida.with_suffix(".decisao.json"))
+    if frases:
+        trechos = plano.aplicar_decisao(trechos, frases, d, c["folga"])
+    cortadas = len(frases) - len(d.manter)
+    print(f"    {cortadas} frases cortadas, {len(d.destaques)} destaques, {len(d.zoom)} zooms")
+    print(f"    {total:.1f}s → {sum(t.duracao for t in trechos):.1f}s")
+
+    print("4/5 gerando legendas…")
     v = cfg["video"]
     ass = saida.with_suffix(".ass")
     ass.write_text(
-        legendas.gerar_ass(plano.remapear(palavras, trechos), cfg["legendas"], v["largura"], v["altura"]),
+        legendas.gerar_ass(plano.remapear(palavras, trechos), cfg["legendas"],
+                           v["largura"], v["altura"], set(d.destaques)),
         encoding="utf-8",
     )
 
-    print("4/4 renderizando…")
+    print("5/5 renderizando…")
     render.renderizar(video, trechos, ass, saida, v, c["fade_audio"])
     print(f"pronto: {saida}")
 
@@ -67,6 +77,7 @@ def main() -> None:
     p.add_argument("-o", "--saida", type=Path)
     p.add_argument("--modelo", help="sobrepõe o modelo de transcrição da configuração")
     p.add_argument("--transcricao-json", type=Path, help="usa uma transcrição já salva")
+    p.add_argument("--sem-claude", action="store_true", help="pula a decisão do Claude (só corta silêncios)")
 
     m = sub.add_parser("medir", help="mede a velocidade da transcrição neste Mac")
     m.add_argument("video", type=Path)
@@ -78,6 +89,8 @@ def main() -> None:
         cfg["transcricao"]["modelo"] = args.modelo
 
     if args.comando == "processar":
+        if args.sem_claude:
+            cfg["decisao"]["backend"] = "nenhum"
         saida = args.saida or args.video.with_name(args.video.stem + "_editado.mp4")
         processar(args.video, saida, cfg, args.transcricao_json)
     else:

@@ -10,6 +10,8 @@ dependencies = []
 intel = ["faster-whisper>=1.0"]
 # Mac Apple Silicon (M1, M2, ...): usa a GPU via MLX
 mx = ["mlx-whisper>=0.4", "faster-whisper>=1.0"]
+# Só se usar a decisão pela API em vez da assinatura
+api = ["anthropic>=0.80"]
 dev = ["pytest>=8"]
 
 [project.scripts]

@@ -8,6 +8,19 @@ backend = "auto"
 modelo = "small"
 idioma = "pt"
 
+[decisao]
+# Quem decide retakes, destaques e zoom:
+# "assinatura" = Claude Code instalado no Mac (usa a sua assinatura do Claude)
+# "api"        = API da Anthropic (precisa de ANTHROPIC_API_KEY e de: pip install anthropic)
+# "nenhum"     = sem decisão: mantém tudo, sem destaques nem zoom
+backend = "assinatura"
+# Modelo no Claude Code (ex.: "sonnet", "opus"); vazio usa o padrão da sua conta.
+modelo = ""
+# Modelo quando backend = "api".
+modelo_api = "claude-opus-5-5"
+# Tempo máximo de espera pela resposta (segundos).
+timeout = 300
+
 [cortes]
 # Volume abaixo do qual o áudio conta como silêncio (dB).
 limiar_db = -35
