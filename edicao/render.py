@@ -10,16 +10,44 @@ def _escapar_caminho_filtro(caminho: Path) -> str:
     return str(caminho).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
 
 
+# Curvas de aceleração (p vai de 0 a 1). Guardam p em st(0) para reaproveitar.
+_SUAVIZACAO = {
+    "suave": "st(0,{p})*ld(0)*(3-2*ld(0))",            # acelera e desacelera
+    "rapido": "1-pow(1-st(0,{p}),3)",                   # sai rápido e assenta devagar
+}
+
+
+def _animacao(t: Trecho, larg: int, alt: int, W: int, H: int) -> str:
+    """Zoom animado: amplia a imagem quadro a quadro e corta a janela que segue os olhos."""
+    x0, y0, w0, _ = t.quadro_inicial
+    x1, y1, w1, _ = t.quadro
+    p = f"clip((t+{t.anim_decorrido:.3f})/{max(t.anim_duracao, 0.01):.3f},0,1)"
+    e = "(" + _SUAVIZACAO[t.tipo].format(p=p) + ")"
+    largura_janela = f"({w0}+({w1 - w0})*{e})"
+    # Largura e altura da imagem ampliada, calculadas aqui: o crop guarda o tamanho do
+    # primeiro quadro em in_w/in_h e não acompanha a escala que muda a cada quadro.
+    largura_ampliada = f"(trunc({W}*{larg}/{largura_janela}/2)*2)"
+    altura_ampliada = f"({largura_ampliada}*{H}/{W})"
+    return (
+        f"scale=w='{largura_ampliada}':h=-2:eval=frame:flags=lanczos,"
+        f"crop=w={larg}:h={alt}:"
+        f"x='clip(({x0}+({x1 - x0})*{e})*{largura_ampliada}/{W},0,{largura_ampliada}-{larg})':"
+        f"y='clip(({y0}+({y1 - y0})*{e})*{altura_ampliada}/{H},0,{altura_ampliada}-{alt}-2)'"
+    )
+
+
 def renderizar(
     video: Path, trechos: list[Trecho], legendas_ass: Path | None, saida: Path,
-    cfg_video: dict, fade_audio: float,
+    cfg_video: dict, fade_audio: float, dimensoes: tuple[int, int] | None = None,
 ) -> None:
     larg, alt = cfg_video["largura"], cfg_video["altura"]
     filtros = []
     for i, t in enumerate(trechos):
         fade = min(fade_audio, t.duracao / 2)
-        if t.quadro:
-            # Janela calculada a partir dos olhos (ver rosto.enquadrar).
+        if t.quadro and t.quadro_inicial and t.tipo in _SUAVIZACAO and dimensoes:
+            enquadramento = _animacao(t, larg, alt, *dimensoes)
+        elif t.quadro:
+            # Corte seco: janela fixa calculada a partir dos olhos (ver rosto.enquadrar).
             x, y, w, h = t.quadro
             enquadramento = f"crop={w}:{h}:{x}:{y},scale={larg}:{alt}:flags=lanczos"
         else:

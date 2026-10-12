@@ -32,7 +32,12 @@ class Decisao:
     manter: list[int]
     destaques: list[str]
     zoom: dict[int, float]
+    # Modalidade de cada zoom: "seco" (salto na emenda), "suave" (aproximação lenta ao longo
+    # da frase) ou "rapido" (aproximação curta e suavizada no início da frase).
+    tipo_zoom: dict[int, str] = field(default_factory=dict)
 
+
+TIPOS_ZOOM = ("seco", "suave", "rapido")
 
 ESQUEMA = {
     "type": "object",
@@ -45,11 +50,15 @@ ESQUEMA = {
             "type": "array",
             "items": {
                 "type": "object",
-                "properties": {"frase": {"type": "integer"}, "nivel": {"type": "number"}},
-                "required": ["frase", "nivel"],
+                "properties": {
+                    "frase": {"type": "integer"},
+                    "nivel": {"type": "number"},
+                    "tipo": {"type": "string", "enum": list(TIPOS_ZOOM)},
+                },
+                "required": ["frase", "nivel", "tipo"],
                 "additionalProperties": False,
             },
-            "description": "Frases com zoom e o nível (1.0 a 1.4).",
+            "description": "Frases com zoom, o nível (1.0 a 1.4) e a modalidade.",
         },
     },
     "required": ["manter", "destaques", "zoom"],
@@ -68,10 +77,19 @@ Decida a edição:
    - Não remova conteúdo só para encurtar: na dúvida, mantenha.
 2. destaques: palavras-chave que merecem cor na legenda (números, termos técnicos, a ideia central).
    No máximo uma a cada 5 segundos. Escreva exatamente como aparecem na transcrição.
-3. zoom: frases que ganham aproximação, com nível entre 1.0 e {zoom_maximo}, para dar ritmo.
-   Use aproximações leves (1.1 a 1.2) para variar o enquadramento e as maiores (até {zoom_maximo})
-   só nos momentos mais fortes: gancho inicial, frase de impacto, chamada para ação.
-   Evite o mesmo nível em frases seguidas; cerca de uma frase a cada duas ou três é um bom ritmo.
+3. zoom: frases que ganham aproximação, com nível entre 1.0 e {zoom_maximo} e uma modalidade (tipo).
+   O enquadramento acompanha os olhos automaticamente. Alterne as três modalidades:
+   - "seco": o enquadramento salta para o nível na emenda, sem animação. É a escolha natural
+     para frases marcadas com ✂ (logo depois de um corte de fala ou de silêncio), porque o salto
+     disfarça o corte. Níveis de 1.1 a 1.3.
+   - "suave": aproximação lenta e contínua ao longo da frase inteira, cinematográfica. Para
+     frases reflexivas, de explicação ou de emoção, de preferência com mais de 3 segundos.
+     Níveis de 1.1 a 1.25.
+   - "rapido": aproximação curta e suavizada no começo da frase, que depois fica parada.
+     Para impacto: gancho inicial, número forte, frase de efeito, chamada para ação.
+     Níveis de 1.2 a {zoom_maximo}.
+   Evite a mesma modalidade e o mesmo nível em frases seguidas; cerca de uma frase a cada duas
+   ou três com zoom é um bom ritmo.
 
 Transcrição:
 """
@@ -95,8 +113,12 @@ def _frase(id_: int, palavras: list[Palavra]) -> Frase:
     return Frase(id_, " ".join(p.texto for p in palavras), palavras[0].inicio, palavras[-1].fim, palavras)
 
 
-def montar_prompt(frases: list[Frase], zoom_maximo: float = 1.4) -> str:
-    linhas = [f"[{f.id}] ({f.inicio:.1f}s–{f.fim:.1f}s) {f.texto}" for f in frases]
+def montar_prompt(frases: list[Frase], zoom_maximo: float = 1.4, pausa_corte: float = 0.5) -> str:
+    """Uma linha por frase; ✂ marca frases precedidas de pausa longa (o silêncio será cortado)."""
+    linhas = []
+    for i, f in enumerate(frases):
+        corte = " ✂" if i > 0 and f.inicio - frases[i - 1].fim >= pausa_corte else ""
+        linhas.append(f"[{f.id}]{corte} ({f.inicio:.1f}s–{f.fim:.1f}s) {f.texto}")
     return INSTRUCOES.format(zoom_maximo=zoom_maximo) + "\n".join(linhas)
 
 
@@ -110,12 +132,10 @@ def validar(bruto: dict, frases: list[Frase], zoom_maximo: float = 1.4) -> Decis
 
     mantidas = {norm(p.texto) for f in frases if f.id in manter for p in f.palavras}
     destaques = [d for d in bruto.get("destaques", []) if norm(d) and norm(d) in mantidas]
-    zoom = {
-        z["frase"]: min(zoom_maximo, max(1.0, float(z["nivel"])))
-        for z in bruto.get("zoom", [])
-        if z.get("frase") in manter and "nivel" in z
-    }
-    return Decisao(manter, destaques, zoom)
+    validos = [z for z in bruto.get("zoom", []) if z.get("frase") in manter and "nivel" in z]
+    zoom = {z["frase"]: min(zoom_maximo, max(1.0, float(z["nivel"]))) for z in validos}
+    tipo_zoom = {z["frase"]: z.get("tipo") if z.get("tipo") in TIPOS_ZOOM else "seco" for z in validos}
+    return Decisao(manter, destaques, zoom, tipo_zoom)
 
 
 def decidir(frases: list[Frase], cfg: dict) -> Decisao:
@@ -124,7 +144,7 @@ def decidir(frases: list[Frase], cfg: dict) -> Decisao:
     if backend == "nenhum" or not frases:
         return Decisao([f.id for f in frases], [], {})
     zoom_maximo = cfg.get("zoom_maximo", 1.4)
-    prompt = montar_prompt(frases, zoom_maximo)
+    prompt = montar_prompt(frases, zoom_maximo, cfg.get("pausa_corte", 0.5))
     try:
         if backend == "assinatura":
             bruto = _via_assinatura(prompt, cfg)

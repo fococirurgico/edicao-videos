@@ -33,6 +33,7 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
 
     frases = decisao.dividir_em_frases(palavras)
     print(f"3/5 decidindo a edição ({cfg['decisao']['backend']}, {len(frases)} frases)…")
+    cfg["decisao"]["pausa_corte"] = c["silencio_minimo"]
     d = decisao.decidir(frases, cfg["decisao"])
     decisao.salvar(d, frases, saida.with_suffix(".decisao.json"))
     if frases:
@@ -42,19 +43,28 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     print(f"    {total:.1f}s → {sum(t.duracao for t in trechos):.1f}s")
 
     e = cfg["enquadramento"]
+    plano.planejar_movimento(trechos, e["duracao_zoom_rapido"], e["salto_nos_cortes"],
+                             cfg["decisao"]["zoom_maximo"])
+    W, H = midia.dimensoes(video)
+    olhos = []
     if e["rastrear_rosto"]:
         print("    procurando os olhos para enquadrar o zoom…")
-        W, H = midia.dimensoes(video)
         olhos = rosto.detectar_olhos(video, W, H, e["amostras_por_segundo"])
-        v = cfg["video"]
-        reduzidos = 0
-        for t in trechos:
-            q = rosto.enquadrar(olhos, t.inicio, t.fim, t.zoom, W, H, v["largura"] / v["altura"],
-                                e["altura_olhos"], e["margem_olhos"])
-            reduzidos += q.zoom < t.zoom
-            t.zoom, t.quadro = q.zoom, (q.x, q.y, q.largura, q.altura)
-        print(f"    olhos encontrados em {len(olhos)} quadros"
-              + (f"; zoom reduzido em {reduzidos} trechos para manter os olhos no quadro" if reduzidos else ""))
+        print(f"    olhos encontrados em {len(olhos)} quadros")
+    v = cfg["video"]
+    proporcao = v["largura"] / v["altura"]
+    reduzidos = 0
+    for t in trechos:
+        q = rosto.enquadrar(olhos, t.inicio, t.fim, t.zoom, W, H, proporcao,
+                            e["altura_olhos"], e["margem_olhos"])
+        reduzidos += q.zoom < t.zoom
+        t.zoom, t.quadro = q.zoom, (q.x, q.y, q.largura, q.altura)
+        if t.tipo in ("suave", "rapido"):
+            q0 = rosto.enquadrar(olhos, t.inicio, t.fim, 1.0, W, H, proporcao,
+                                 e["altura_olhos"], e["margem_olhos"])
+            t.quadro_inicial = (q0.x, q0.y, q0.largura, q0.altura)
+    if reduzidos:
+        print(f"    zoom reduzido em {reduzidos} trechos para manter os olhos no quadro")
 
     print("4/5 gerando legendas…")
     v = cfg["video"]
@@ -66,7 +76,7 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     )
 
     print("5/5 renderizando…")
-    render.renderizar(video, trechos, ass, saida, v, c["fade_audio"])
+    render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H))
     print(f"pronto: {saida}")
 
 

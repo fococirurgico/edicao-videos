@@ -32,6 +32,11 @@ altura_olhos = 0.42
 margem_olhos = 0.12
 # Quadros analisados por segundo para achar os olhos.
 amostras_por_segundo = 5
+# Duração da aproximação no zoom "rápido" (segundos).
+duracao_zoom_rapido = 0.4
+# Corte seco: quando a fala é cortada e o enquadramento ficaria igual dos dois lados,
+# o zoom muda nesse valor para disfarçar o corte. 0 desliga.
+salto_nos_cortes = 0.12
 
 [cortes]
 # Volume abaixo do qual o áudio conta como silêncio (dB).

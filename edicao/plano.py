@@ -12,6 +12,14 @@ class Trecho:
     zoom: float = 1.0
     # Janela de corte (x, y, largura, altura) na imagem original; None = centralizado.
     quadro: tuple[int, int, int, int] | None = None
+    # Modalidade do zoom: "seco", "suave" ou "rapido" (ver decisao.TIPOS_ZOOM).
+    tipo: str = "seco"
+    frase: int | None = None
+    # Para "suave" e "rapido": janela no início da animação, quanto da animação já passou
+    # quando o trecho começa e a duração total da animação (segundos).
+    quadro_inicial: tuple[int, int, int, int] | None = None
+    anim_decorrido: float = 0.0
+    anim_duracao: float = 0.0
 
     @property
     def duracao(self) -> float:
@@ -74,17 +82,52 @@ def aplicar_decisao(trechos: list[Trecho], frases, decisao, folga: float) -> lis
             pontos = [a, *sorted(c for c in cortes if a < c < b), b]
             for x, y in zip(pontos, pontos[1:]):
                 if y - x > 0.05:
-                    resultado.append(Trecho(x, y, _zoom_em((x + y) / 2, frases, decisao)))
+                    fid = _frase_em((x + y) / 2, frases)
+                    resultado.append(Trecho(
+                        x, y, decisao.zoom.get(fid, 1.0),
+                        tipo=decisao.tipo_zoom.get(fid, "seco") if fid in decisao.zoom else "seco",
+                        frase=fid,
+                    ))
     return resultado
 
 
-def _zoom_em(t: float, frases, decisao) -> float:
+def _frase_em(t: float, frases) -> int | None:
     for i, f in enumerate(frases):
         ini = (frases[i - 1].fim + f.inicio) / 2 if i > 0 else float("-inf")
         fim = (f.fim + frases[i + 1].inicio) / 2 if i + 1 < len(frases) else float("inf")
         if ini <= t < fim:
-            return decisao.zoom.get(f.id, 1.0)
-    return 1.0
+            return f.id
+    return None
+
+
+def planejar_movimento(trechos: list[Trecho], duracao_rapido: float,
+                       salto_nos_cortes: float, zoom_maximo: float) -> None:
+    """Prepara as animações e os saltos de enquadramento (altera os trechos no lugar).
+
+    - "suave": a animação atravessa a frase inteira, mesmo que ela tenha sido dividida
+      por cortes de silêncio; cada pedaço continua de onde o anterior parou.
+    - "rapido": a animação dura `duracao_rapido` segundos a partir do início da frase.
+    - Corte seco: quando um trecho começa logo após um corte e ficaria no mesmo nível do
+      anterior, o nível muda em `salto_nos_cortes` para o corte não parecer um tranco.
+    """
+    total: dict[int, float] = {}
+    for t in trechos:
+        if t.tipo == "suave":
+            total[t.frase] = total.get(t.frase, 0.0) + t.duracao
+    decorrido: dict[int, float] = {}
+    for t in trechos:
+        if t.tipo in ("suave", "rapido"):
+            t.anim_decorrido = decorrido.get(t.frase, 0.0)
+            t.anim_duracao = total[t.frase] if t.tipo == "suave" else duracao_rapido
+            decorrido[t.frase] = t.anim_decorrido + t.duracao
+
+    if salto_nos_cortes <= 0:
+        return
+    for anterior, t in zip(trechos, trechos[1:]):
+        houve_corte = t.inicio - anterior.fim > 0.05
+        if houve_corte and t.tipo == anterior.tipo == "seco" and abs(t.zoom - anterior.zoom) < 0.01:
+            subir = anterior.zoom + salto_nos_cortes
+            t.zoom = round(subir if subir <= zoom_maximo else max(1.0, anterior.zoom - salto_nos_cortes), 2)
 
 
 def remapear(palavras: list[Palavra], trechos: list[Trecho]) -> list[Palavra]:

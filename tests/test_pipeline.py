@@ -159,3 +159,72 @@ def test_olhos_na_borda_reduzem_o_zoom_para_caber():
 def test_sem_rosto_centraliza():
     q = rosto.enquadrar([], 0, 1, 1.25, 1080, 1920, 9 / 16, 0.42, 0.12)
     assert q.x == pytest.approx((1080 - q.largura) / 2, abs=1)
+
+
+def test_tipo_de_zoom_validado_e_padrao_seco():
+    frases = decisao.dividir_em_frases(_palavras(("um.", 0, 0.4), ("dois.", 1.5, 1.9)))
+    d = decisao.validar({"manter": [1, 2], "destaques": [],
+                         "zoom": [{"frase": 1, "nivel": 1.2, "tipo": "suave"},
+                                  {"frase": 2, "nivel": 1.3, "tipo": "inventado"}]}, frases)
+    assert d.tipo_zoom == {1: "suave", 2: "seco"}
+
+
+def test_prompt_marca_frases_depois_de_corte():
+    frases = decisao.dividir_em_frases(_palavras(("um.", 0, 0.4), ("dois.", 0.5, 0.9), ("três.", 2.0, 2.4)))
+    linhas = decisao.montar_prompt(frases).splitlines()[-3:]
+    assert "✂" not in linhas[0] and "✂" not in linhas[1] and "✂" in linhas[2]
+
+
+def test_suave_continua_entre_pedacos_da_frase_e_rapido_tem_duracao_fixa():
+    trechos = [
+        plano.Trecho(0, 2, 1.2, tipo="suave", frase=1),
+        plano.Trecho(2.8, 4, 1.2, tipo="suave", frase=1),   # mesma frase, depois de um silêncio
+        plano.Trecho(4, 6, 1.3, tipo="rapido", frase=2),
+    ]
+    plano.planejar_movimento(trechos, 0.4, 0.12, 1.4)
+    assert (trechos[0].anim_decorrido, trechos[0].anim_duracao) == (0, pytest.approx(3.2))
+    assert trechos[1].anim_decorrido == pytest.approx(2.0)
+    assert (trechos[2].anim_decorrido, trechos[2].anim_duracao) == (0, 0.4)
+
+
+def test_corte_seco_muda_o_nivel_quando_ficaria_igual():
+    trechos = [plano.Trecho(0, 1, 1.0), plano.Trecho(1.6, 2.5, 1.0), plano.Trecho(2.5, 3, 1.0),
+               plano.Trecho(3.5, 4, 1.35), plano.Trecho(4.5, 5, 1.35)]
+    plano.planejar_movimento(trechos, 0.4, 0.12, 1.4)
+    assert [t.zoom for t in trechos] == [1.0, 1.12, 1.0, 1.35, 1.23]
+    # trecho 3 não vem de corte (emenda contínua), então fica como está;
+    # no último, subir passaria do máximo, então o salto é para baixo.
+
+
+def _quadro(video, n):
+    import numpy as np
+    dados = subprocess.run(
+        ["ffmpeg", "-loglevel", "error", "-i", str(video), "-vf", f"select=eq(n\\,{n}),scale=90:160",
+         "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        capture_output=True, check=True,
+    ).stdout
+    return np.frombuffer(dados, np.uint8).astype(int)
+
+
+def test_render_com_zoom_animado(tmp_path):
+    from edicao import render
+    fonte = tmp_path / "padrao.mp4"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=s=360x640:d=1:r=30",
+                    "-f", "lavfi", "-i", "sine=d=1", "-shortest", "-c:v", "libx264", "-c:a", "aac", str(fonte)],
+                   check=True)
+    cfg_video = config.carregar()["video"]
+    inicial, final = (0, 0, 360, 640), (56, 104, 248, 440)
+    anim = plano.Trecho(0, 1, 1.45, quadro=final, tipo="rapido", quadro_inicial=inicial, anim_duracao=0.3)
+    parado_ini = plano.Trecho(0, 1, 1.0, quadro=inicial)
+    parado_fim = plano.Trecho(0, 1, 1.45, quadro=final)
+    saidas = {}
+    for nome, t in (("anim", anim), ("ini", parado_ini), ("fim", parado_fim)):
+        saidas[nome] = tmp_path / f"{nome}.mp4"
+        render.renderizar(fonte, [t], None, saidas[nome], cfg_video, 0.02, (360, 640))
+
+    def diferenca(a, b):
+        return abs(a - b).mean()
+    # A animação começa igual ao enquadramento inicial e termina igual ao final.
+    assert diferenca(_quadro(saidas["anim"], 0), _quadro(saidas["ini"], 0)) < 8
+    assert diferenca(_quadro(saidas["anim"], 25), _quadro(saidas["fim"], 25)) < 8
+    assert diferenca(_quadro(saidas["ini"], 0), _quadro(saidas["fim"], 0)) > 15

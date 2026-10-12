@@ -52,9 +52,15 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 - **C:** serviço pronto (Submagic, Captions, Shotstack, Creatomate). Pouco código, mas trata mal retakes e prende o estilo.
 - **Espelhamento do iPhone no Mac com o Claude operando o Edits:** possível em teoria, mas lento, impreciso e frágil.
 
-## Como usar (protótipo 0.3)
+## Como usar (protótipo 0.4)
 
-O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", escolhe palavras de destaque e frases com zoom) e legendas com a palavra atual destacada, exportando em 1080x1920. O zoom vai de 1,0 a 1,4 e acompanha os olhos: eles ficam centralizados na horizontal e um pouco acima do centro (42% da altura), e se algum olho fosse sair do quadro o zoom daquele trecho diminui. Ainda não: álbum do Fotos e material de apoio.
+O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", escolhe palavras de destaque e frases com zoom) e legendas com a palavra atual destacada, exportando em 1080x1920. O zoom alterna três modalidades, escolhidas pelo Claude frase a frase:
+
+- **Seco:** o enquadramento salta na emenda, sem animação. Usado sobretudo logo depois de cortes de fala ou de silêncio; quando um corte deixaria o mesmo enquadramento dos dois lados, o zoom muda sozinho (salto de 0,12) para o corte não parecer um tranco.
+- **Suave (cinematográfico):** aproximação lenta e contínua ao longo da frase inteira, que continua de onde parou mesmo se a frase tiver um silêncio cortado no meio.
+- **Rápido suavizado:** aproximação de 0,4 s no começo da frase, que sai rápido e assenta devagar, e depois fica parada.
+
+O zoom vai de 1,0 a 1,4 e acompanha os olhos em todas as modalidades: eles ficam centralizados na horizontal e um pouco acima do centro (42% da altura), e se algum olho fosse sair do quadro o zoom daquele trecho diminui. Ainda não: álbum do Fotos e material de apoio.
 
 Dica: grave em 4K no iPhone. Com 1080p, o zoom de 1,4 amplia a imagem e ela perde nitidez; em 4K sobra resolução.
 
@@ -95,4 +101,4 @@ Testes: `.venv/bin/pip install -e '.[dev]' && .venv/bin/pytest`.
 
 ## Status
 
-Protótipo 0.3. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).
+Protótipo 0.4. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).
