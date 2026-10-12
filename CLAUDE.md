@@ -38,6 +38,8 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 1. Usuário instalar com o `instalar.command` e testar nos dois Macs (4K e 1080p, modo Cinema com HDR); relatar tempos e qualidade.
 2. Álbum do Fotos (osxphotos): ler "Para editar", importar o resultado em "Editados".
 3. Material de apoio: encaixe pelo Claude, tela dividida, desfoque.
+4. Inspiração em conta de referência (ideia em aberto, ver Notion): perfil de estilo gerado a partir
+   de vídeos de referência fornecidos pelo usuário, sem baixar das plataformas automaticamente.
 
 ## Pendência no Notion
 
@@ -46,6 +48,7 @@ Database 📌 Pendências conhecidas. Atualize ao avançar (marque Concluído e 
 - `nota:edicao-video-album-fotos`: entrada e saída pelo álbum do Fotos (código).
 - `nota:edicao-video-material-apoio`: material de apoio (código).
 - `nota:edicao-video-zoom-1080p`: limite de zoom em 1080p, decidir depois do teste.
+- `nota:edicao-video-inspiracao`: inspiração em conta de referência (decisão em aberto).
 
 ## Cuidados técnicos
 
