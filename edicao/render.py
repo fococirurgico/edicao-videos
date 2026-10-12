@@ -53,9 +53,10 @@ def _animacao(t: Trecho, larg: int, alt: int, W: int, H: int) -> str:
 def renderizar(
     video: Path, trechos: list[Trecho], legendas_ass: Path | None, saida: Path,
     cfg_video: dict, fade_audio: float, dimensoes: tuple[int, int] | None = None,
-    hdr: str | None = None,
+    hdr: str | None = None, pasta_fontes: Path | None = None,
 ) -> None:
-    """hdr: curva de transferência do original (ver midia.transferencia_hdr); None se SDR."""
+    """hdr: curva de transferência do original (ver midia.transferencia_hdr); None se SDR.
+    pasta_fontes: onde procurar a fonte da legenda além das instaladas no Mac."""
     larg, alt = cfg_video["largura"], cfg_video["altura"]
     cor = f",{_para_sdr(hdr)}" if hdr else ""
     filtros = []
@@ -88,6 +89,8 @@ def renderizar(
     final = "[vc]null"
     if legendas_ass:
         final += f",subtitles=filename='{_escapar_caminho_filtro(legendas_ass)}'"
+        if pasta_fontes:
+            final += f":fontsdir='{_escapar_caminho_filtro(pasta_fontes)}'"
     filtros.append(final + "[vout]")
 
     codec = cfg_video["codec"]

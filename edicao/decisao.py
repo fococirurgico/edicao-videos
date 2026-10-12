@@ -11,9 +11,11 @@ Backends:
 
 import json
 import re
+import shutil
 import subprocess
 import tempfile
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 from .transcricao import Palavra
 
@@ -65,8 +67,8 @@ ESQUEMA = {
     "additionalProperties": False,
 }
 
-INSTRUCOES = """Você é o editor de um vídeo curto vertical (Reels) gravado no celular por um médico.
-Abaixo está a transcrição, dividida em frases numeradas com o tempo de cada uma.
+INSTRUCOES = """Você é o editor de um vídeo curto vertical (Reels) gravado no celular{autor}.
+{contexto}Abaixo está a transcrição, dividida em frases numeradas com o tempo de cada uma.
 
 Decida a edição:
 
@@ -113,13 +115,25 @@ def _frase(id_: int, palavras: list[Palavra]) -> Frase:
     return Frase(id_, " ".join(p.texto for p in palavras), palavras[0].inicio, palavras[-1].fim, palavras)
 
 
-def montar_prompt(frases: list[Frase], zoom_maximo: float = 1.4, pausa_corte: float = 0.5) -> str:
+def _contexto_marca(marca: dict) -> tuple[str, str]:
+    """Trecho sobre o autor e linhas de contexto da marca (vazios se não configurados)."""
+    autor = f" por {marca['autor']}" if marca.get("autor") else ""
+    itens = [(rotulo, marca.get(chave, "")) for rotulo, chave in
+             (("Marca", "nome"), ("Público", "publico"), ("Tom da comunicação", "tom"))]
+    linhas = [f"{rotulo}: {valor}" for rotulo, valor in itens if valor]
+    contexto = "\n".join(linhas) + "\n\n" if linhas else ""
+    return autor, contexto
+
+
+def montar_prompt(frases: list[Frase], zoom_maximo: float = 1.4, pausa_corte: float = 0.5,
+                  marca: dict | None = None) -> str:
     """Uma linha por frase; ✂ marca frases precedidas de pausa longa (o silêncio será cortado)."""
+    autor, contexto = _contexto_marca(marca or {})
     linhas = []
     for i, f in enumerate(frases):
         corte = " ✂" if i > 0 and f.inicio - frases[i - 1].fim >= pausa_corte else ""
         linhas.append(f"[{f.id}]{corte} ({f.inicio:.1f}s–{f.fim:.1f}s) {f.texto}")
-    return INSTRUCOES.format(zoom_maximo=zoom_maximo) + "\n".join(linhas)
+    return INSTRUCOES.format(zoom_maximo=zoom_maximo, autor=autor, contexto=contexto) + "\n".join(linhas)
 
 
 def validar(bruto: dict, frases: list[Frase], zoom_maximo: float = 1.4) -> Decisao:
@@ -138,13 +152,13 @@ def validar(bruto: dict, frases: list[Frase], zoom_maximo: float = 1.4) -> Decis
     return Decisao(manter, destaques, zoom, tipo_zoom)
 
 
-def decidir(frases: list[Frase], cfg: dict) -> Decisao:
+def decidir(frases: list[Frase], cfg: dict, marca: dict | None = None) -> Decisao:
     """Pede a decisão ao Claude. Se falhar, segue sem decisão (mantém tudo) e avisa."""
     backend = cfg["backend"]
     if backend == "nenhum" or not frases:
         return Decisao([f.id for f in frases], [], {})
     zoom_maximo = cfg.get("zoom_maximo", 1.4)
-    prompt = montar_prompt(frases, zoom_maximo, cfg.get("pausa_corte", 0.5))
+    prompt = montar_prompt(frases, zoom_maximo, cfg.get("pausa_corte", 0.5), marca)
     try:
         if backend == "assinatura":
             bruto = _via_assinatura(prompt, cfg)
@@ -159,15 +173,29 @@ def decidir(frases: list[Frase], cfg: dict) -> Decisao:
 
 
 def _via_assinatura(prompt: str, cfg: dict) -> dict:
+    return claude_json(prompt, ESQUEMA, cfg)
+
+
+def claude_json(prompt: str, esquema: dict, cfg: dict, anexos: tuple[Path, ...] = ()) -> dict:
+    """Chama o Claude Code (assinatura) e devolve a resposta no formato de `esquema`.
+
+    anexos: arquivos que o Claude pode ler (PDF, imagem). São copiados para a pasta de trabalho
+    e só a ferramenta de leitura é liberada.
+    """
+    ferramentas = "Read" if anexos else ""
     cmd = [
         "claude", "-p", "--output-format", "json",
-        "--json-schema", json.dumps(ESQUEMA),
-        "--max-turns", "3", "--no-session-persistence", "--tools", "",
+        "--json-schema", json.dumps(esquema),
+        "--max-turns", "8" if anexos else "3", "--no-session-persistence", "--tools", ferramentas,
     ]
+    if anexos:
+        cmd += ["--allowedTools", "Read"]
     if cfg.get("modelo"):
         cmd += ["--model", cfg["modelo"]]
     # Roda numa pasta vazia para não carregar CLAUDE.md nem configurações de projeto.
     with tempfile.TemporaryDirectory() as pasta:
+        for arquivo in anexos:
+            shutil.copy(arquivo, Path(pasta) / arquivo.name)
         r = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
                            timeout=cfg.get("timeout", 300), cwd=pasta)
     if r.returncode != 0:

@@ -27,17 +27,18 @@ def _escapar(texto: str) -> str:
 
 
 def gerar_ass(
-    palavras: list[Palavra], cfg: dict, largura: int, altura: int,
+    palavras: list[Palavra], cfg: dict, marca: dict, largura: int, altura: int,
     destaques: set[str] | None = None,
 ) -> str:
     """Divide as palavras em blocos curtos e cria um evento por palavra falada.
 
+    cfg: seção [legendas] (tamanho e posição); marca: seção [marca] (fonte e cores).
     Em cada evento o bloco inteiro aparece, com a palavra atual em `cor_palavra_atual`.
     Palavras em `destaques` aparecem sempre em `cor_destaque`.
     """
     destaques = {_normalizar(d) for d in (destaques or set())}
-    cor_atual = _cor_ass(cfg["cor_palavra_atual"])
-    cor_destaque = _cor_ass(cfg["cor_destaque"])
+    cor_atual = _cor_ass(marca["cor_palavra_atual"])
+    cor_destaque = _cor_ass(marca["cor_destaque"])
 
     cabecalho = f"""[Script Info]
 ScriptType: v4.00+
@@ -47,7 +48,7 @@ WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Padrao,{cfg["fonte"]},{cfg["tamanho"]},{_cor_ass(cfg["cor"])},&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,{cfg["contorno"]},0,2,60,60,{cfg["margem_inferior"]},1
+Style: Padrao,{marca["fonte"]},{cfg["tamanho"]},{_cor_ass(marca["cor_texto"])},&H000000FF,{_cor_ass(marca["cor_contorno"])},&H00000000,{-1 if marca.get("negrito", True) else 0},{-1 if marca.get("italico") else 0},0,0,100,100,0,0,1,{cfg["contorno"]},0,2,60,60,{cfg["margem_inferior"]},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

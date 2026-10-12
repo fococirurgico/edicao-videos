@@ -8,6 +8,12 @@ from edicao.cli import processar
 from edicao.transcricao import Palavra, salvar
 
 
+@pytest.fixture(autouse=True)
+def pasta_usuario_isolada(tmp_path, monkeypatch):
+    """Os testes nunca leem nem gravam a configuração real deste computador."""
+    monkeypatch.setenv("EDICAO_PASTA", str(tmp_path / "usuario"))
+
+
 @pytest.fixture
 def video(tmp_path: Path) -> Path:
     """Vídeo vertical de 4s: tom 0–1s, silêncio 1–2.5s, tom 2.5–4s."""
@@ -50,9 +56,9 @@ def test_remapear_descarta_palavras_cortadas():
 
 
 def test_legenda_destaca_palavra_atual_e_destaques():
-    cfg = config.carregar()["legendas"]
+    cfg = config.carregar()
     ass = legendas.gerar_ass(
-        [Palavra("olha", 0, 0.4), Palavra("resultado", 0.4, 1.0)], cfg, 1080, 1920,
+        [Palavra("olha", 0, 0.4), Palavra("resultado", 0.4, 1.0)], cfg["legendas"], cfg["marca"], 1080, 1920,
         destaques={"Resultado"},
     )
     eventos = [l for l in ass.splitlines() if l.startswith("Dialogue")]
@@ -267,3 +273,103 @@ def test_hdr_do_iphone_sai_em_sdr_sem_ficar_lavado(tmp_path):
     # Sem conversão a imagem perde mais da metade da cor; convertida, fica perto do original.
     assert _saturacao_media(cru) < 0.5 * original
     assert _saturacao_media(convertido) > 0.9 * original
+
+
+# Identidade de marca e configuração por computador
+
+def test_config_do_computador_sobrepoe_o_padrao_e_sobrevive_a_novas_chaves():
+    from edicao import config as c
+    c.salvar_usuario("marca", {"autor": "um médico cirurgião", "cor_destaque": "#F2A541"})
+    c.salvar_usuario("legendas", {"tamanho": 80})
+    c.salvar_usuario("marca", {"nome": 'Clínica "Horizonte"'})
+    cfg = c.carregar()
+    assert cfg["marca"]["autor"] == "um médico cirurgião"
+    assert cfg["marca"]["nome"] == 'Clínica "Horizonte"'
+    assert cfg["marca"]["cor_destaque"] == "#F2A541"
+    assert cfg["marca"]["cor_texto"] == "#FFFFFF"          # continua vindo do padrão
+    assert cfg["legendas"]["tamanho"] == 80
+    assert cfg["legendas"]["palavras_por_linha"] == 3
+
+
+def test_legenda_usa_fonte_cores_e_estilo_da_marca():
+    cfg = config.carregar()
+    marca_ = {**cfg["marca"], "fonte": "Montserrat", "cor_texto": "#F5F5F5",
+              "cor_contorno": "#0B3C5D", "negrito": False, "italico": True}
+    ass = legendas.gerar_ass([Palavra("oi", 0, 1)], cfg["legendas"], marca_, 1080, 1920)
+    estilo = next(l for l in ass.splitlines() if l.startswith("Style:")).split(",")
+    assert estilo[1] == "Montserrat"
+    assert estilo[3] == "&H00F5F5F5" and estilo[5] == "&H005D3C0B"
+    assert estilo[7:9] == ["0", "-1"]                       # sem negrito, itálico
+
+
+def test_prompt_usa_autor_e_contexto_da_marca():
+    frases = decisao.dividir_em_frases([Palavra("oi.", 0, 1)])
+    com = decisao.montar_prompt(frases, marca={"autor": "um médico cirurgião", "nome": "FOCO", "tom": ""})
+    assert "gravado no celular por um médico cirurgião." in com
+    assert "Marca: FOCO" in com and "Tom" not in com
+    sem = decisao.montar_prompt(frases)
+    assert "gravado no celular.\nAbaixo" in sem
+
+
+def test_manual_de_marca_validado_e_aplicado():
+    from edicao import marca as m
+    proposta = m.validar_manual({
+        "nome": "Clínica Horizonte", "publico": "", "tom": "acolhedor", "fontes": [],
+        "cores": [{"hex": "#0b3c5d", "nome": "Azul", "uso": "primária"},
+                  {"hex": "azul", "nome": "inválida", "uso": ""}],
+        "legenda": {"fonte": "Montserrat", "cor_texto": "fff", "cor_palavra_atual": "#F2A541",
+                    "cor_destaque": "verde", "cor_contorno": "#0B3C5D"},
+        "observacoes": "",
+    })
+    assert [c["hex"] for c in proposta["cores"]] == ["#0B3C5D"]
+    atual = {**config.carregar()["marca"], "publico": "pacientes", "arquivo_fonte": "/x/antiga.ttf"}
+    novo = m.aplicar_manual(atual, proposta)
+    assert novo["nome"] == "Clínica Horizonte" and novo["publico"] == "pacientes"
+    assert novo["cor_texto"] == "#FFFFFF" and novo["cor_palavra_atual"] == "#F2A541"
+    assert novo["cor_destaque"] == "#00E5FF"                # cor inválida não substitui
+    assert novo["fonte"] == "Montserrat" and novo["arquivo_fonte"] == ""
+    assert novo["cores"] == ["#0B3C5D"]
+
+
+def test_ler_manual_chama_o_claude_com_o_arquivo(tmp_path, monkeypatch):
+    from edicao import marca as m
+    manual = tmp_path / "manual.pdf"
+    manual.write_bytes(b"%PDF-1.4")
+    chamadas = []
+
+    def falso(prompt, esquema, cfg, anexos):
+        chamadas.append((prompt, anexos))
+        return {"nome": "X", "publico": "", "tom": "", "fontes": [], "cores": [],
+                "legenda": {}, "observacoes": ""}
+    monkeypatch.setattr(decisao, "claude_json", falso)
+    assert m.ler_manual([manual], {})["nome"] == "X"
+    assert "manual.pdf" in chamadas[0][0] and chamadas[0][1] == (manual,)
+    with pytest.raises(ValueError):
+        m.ler_manual([tmp_path / "manual.docx"], {})
+
+
+FONTE_TESTE = Path("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf")
+
+
+@pytest.mark.skipif(not FONTE_TESTE.exists(), reason="sem fonte de teste")
+def test_perguntas_com_fonte_arrastada_e_cor_invalida():
+    from edicao import marca as m
+    respostas = iter([
+        "FOCO Cirúrgico", "um médico cirurgião", "", "",
+        str(FONTE_TESTE).replace(" ", "\\ "),             # caminho arrastado para o Terminal
+        "", "amarelo", "#ffd400", "", "",                  # cor inválida é perguntada de novo
+        "#0B3C5D, f2a541",
+    ])
+    novo = m.perguntar(config.carregar()["marca"], entrada=lambda _: next(respostas))
+    assert novo["nome"] == "FOCO Cirúrgico" and novo["autor"] == "um médico cirurgião"
+    assert novo["fonte"] == "DejaVu Serif" and novo["negrito"] and not novo["italico"]
+    assert Path(novo["arquivo_fonte"]).parent == config.pasta_usuario() / "fontes"
+    assert novo["cor_palavra_atual"] == "#FFD400"
+    assert novo["cores"] == ["#0B3C5D", "#F2A541"]
+
+
+def test_previa_da_legenda(tmp_path):
+    from edicao import marca as m
+    imagem = m.previa(config.carregar(), tmp_path / "previa.png")
+    assert imagem.exists() and imagem.stat().st_size > 10_000
+    assert not imagem.with_suffix(".ass").exists()

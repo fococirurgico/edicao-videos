@@ -1,9 +1,9 @@
 [project]
 name = "edicao-videos"
-version = "0.1.0"
+version = "0.6.0"
 description = "Pipeline automático de edição de vídeos curtos"
 requires-python = ">=3.11"
-dependencies = ["opencv-python-headless>=4.8", "numpy>=1.24"]
+dependencies = ["opencv-python-headless>=4.8", "numpy>=1.24", "fonttools>=4.40"]
 
 [project.optional-dependencies]
 # Mac Intel (e também funciona no Apple Silicon, só que sem usar a GPU)

@@ -52,7 +52,7 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 - **C:** serviço pronto (Submagic, Captions, Shotstack, Creatomate). Pouco código, mas trata mal retakes e prende o estilo.
 - **Espelhamento do iPhone no Mac com o Claude operando o Edits:** possível em teoria, mas lento, impreciso e frágil.
 
-## Como usar (protótipo 0.5)
+## Como usar (protótipo 0.6)
 
 O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", escolhe palavras de destaque e frases com zoom) e legendas com a palavra atual destacada, exportando em 1080x1920. O zoom alterna três modalidades, escolhidas pelo Claude frase a frase:
 
@@ -73,7 +73,7 @@ Instalação no Mac (uma vez):
 1. No GitHub, abra o repositório, clique em **Code → Download ZIP** e descompacte. Mova a pasta `edicao-videos-main` para um lugar fixo (por exemplo, Documentos): o app de editar aponta para ela.
 2. Abra o Terminal, digite `bash ` (com espaço), arraste o arquivo `instalar.command` da pasta para a janela e tecle Enter.
 
-O instalador cuida de tudo: Homebrew, ffmpeg e Python; o Whisper certo para o Mac (Intel ou Apple Silicon); o Claude Code com login na sua conta; o download do modelo de transcrição; e o app **Editar vídeo** na Mesa. Para editar, arraste o vídeo para esse ícone. Rodar o instalador de novo é seguro: ele só instala o que faltar.
+O instalador cuida de tudo: Homebrew, ffmpeg e Python; o Whisper certo para o Mac (Intel ou Apple Silicon); o Claude Code com login na sua conta; o download do modelo de transcrição; a identidade de marca (opcional); e o app **Editar vídeo** na Mesa. Para editar, arraste o vídeo para esse ícone. Rodar o instalador de novo é seguro: ele só instala o que faltar.
 
 Uso pelo Terminal, dentro da pasta do projeto:
 
@@ -95,6 +95,28 @@ Os ajustes (sensibilidade do silêncio, modelo, cores e tamanho da legenda) fica
 
 Testes: `.venv/bin/pip install -e '.[dev]' && .venv/bin/pytest`.
 
+## Identidade de marca
+
+Fonte e cores da legenda, nome da marca, quem fala nos vídeos, público e tom. O nome, o autor, o público e o tom ajudam o Claude a decidir os cortes e os destaques. Tudo isso fica guardado no computador, fora da pasta do programa (`~/Library/Application Support/edicao-videos/`), e não se perde ao atualizar.
+
+```bash
+.venv/bin/edicao marca                              # perguntas no Terminal (Enter mantém o valor atual)
+.venv/bin/edicao marca --manual ~/Desktop/manual.pdf  # o Claude lê o manual (PDF ou imagens) e preenche as respostas
+.venv/bin/edicao marca --fonte ~/Desktop/Marca-Bold.otf  # usa o arquivo de fonte da marca sem instalar
+.venv/bin/edicao marca --mostrar                    # mostra a configuração atual
+```
+
+Ao ler o manual, o Claude extrai fontes, cores (em hex) e tom de voz e propõe a legenda: texto e contorno com alto contraste, palavra falada e destaques nas cores da marca. Depois vêm as perguntas, já preenchidas, para você conferir. Ao final sai uma prévia da legenda em PNG. Se a fonte da prévia não for a da marca, instale a fonte no Mac ou use `--fonte`.
+
+A paleta completa fica guardada para o material de apoio, que ainda não foi implementado.
+
+## Vários computadores e contas
+
+- **Claude:** cada computador usa a conta em que o Claude Code está logado (o instalador faz o login). O uso conta no limite dessa conta, que precisa ter o Claude Code incluído (Pro, Max, Team ou Enterprise). No plano gratuito, os vídeos saem só com corte de silêncios e legendas. Para trocar de conta, rode `claude` e digite `/login`.
+- **GitHub:** só serve para baixar a pasta do programa; a instalação e o uso não acessam o GitHub. Quem não tem acesso ao repositório pode receber o ZIP por AirDrop ou Drive.
+- **Atualizar:** baixe o ZIP novo, substitua a pasta do programa (no mesmo lugar) e rode o instalador de novo. A identidade de marca e os ajustes deste computador continuam.
+- **Outros ajustes por computador:** o arquivo `config.toml` em `~/Library/Application Support/edicao-videos/` aceita qualquer seção do `config.toml` do programa (por exemplo, `[legendas] tamanho = 80`); o que estiver lá vale só naquele computador.
+
 ## Status
 
-Protótipo 0.5. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).
+Protótipo 0.6. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).

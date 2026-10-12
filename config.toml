@@ -1,4 +1,6 @@
-# Configuração do pipeline. Os valores aqui são o padrão; ajuste à vontade.
+# Configuração padrão do programa. Uma atualização substitui este arquivo.
+# Ajustes de um computador (como a identidade de marca) ficam fora da pasta do programa e
+# não se perdem ao atualizar: use o comando `edicao marca`. Detalhes no README.
 
 [transcricao]
 # "auto" usa mlx no Apple Silicon (se instalado) e faster-whisper no resto.
@@ -48,12 +50,30 @@ folga = 0.08
 # Fade de áudio em cada emenda (segundos), evita estalos.
 fade_audio = 0.02
 
-[legendas]
+[marca]
+# Identidade de marca. Configure com `edicao marca` (perguntas ou leitura do manual de marca).
+nome = ""
+# Quem fala nos vídeos, para o Claude entender o contexto (ex.: "um médico cirurgião").
+autor = ""
+# Para quem são os vídeos e o tom da comunicação; ajudam o Claude a escolher destaques.
+publico = ""
+tom = ""
+# Fonte da legenda: o nome de uma fonte instalada no Mac. Para usar um arquivo .ttf/.otf da
+# marca sem instalar, `edicao marca --fonte ARQUIVO` copia o arquivo e preenche os dois campos.
 fonte = "Helvetica Neue"
-tamanho = 72
-cor = "#FFFFFF"
+arquivo_fonte = ""
+negrito = true
+italico = false
+cor_texto = "#FFFFFF"
 cor_palavra_atual = "#FFD400"
 cor_destaque = "#00E5FF"
+cor_contorno = "#000000"
+# Paleta completa da marca (hex), para usos futuros como o material de apoio.
+cores = []
+
+[legendas]
+tamanho = 72
+# Espessura do contorno das letras, em pixels.
 contorno = 6
 palavras_por_linha = 3
 # Distância da legenda até a borda de baixo, em pixels (vídeo 1080x1920).

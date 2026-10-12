@@ -22,6 +22,13 @@ edição semi-automática que ele fazia no app Edits (Meta). Visão geral e inst
 - Postagem continua manual.
 - Vídeos em 4K ou 1080p (o usuário vai gravar parte em 1080p para poupar espaço). HDR do iPhone
   (HLG, inclusive modo Cinema) é convertido para SDR na renderização; saída sempre BT.709.
+- Roda em vários computadores, com contas diferentes do Claude (a do Claude Code logado em
+  cada um) e sem depender de conta no GitHub para usar.
+- Configuração em duas camadas: `config.toml` do programa (padrão, substituído ao atualizar) e
+  `config.toml` do computador em `~/Library/Application Support/edicao-videos/` (`EDICAO_PASTA`
+  sobrepõe; os testes usam isso). Identidade de marca na seção `[marca]`, via `edicao marca`:
+  perguntas, leitura do manual pelo Claude (`claude_json` com a ferramenta Read) ou arquivo de
+  fonte copiado para `fontes/`. Paleta guardada para o material de apoio.
 - Instalação pelo `instalar.command` (o repositório é privado: o usuário baixa o ZIP e roda o
   script pelo Terminal); ele cria o app "Editar vídeo" na Mesa, no qual se arrastam os vídeos.
 
@@ -49,5 +56,8 @@ Database 📌 Pendências conhecidas. Atualize ao avançar (marque Concluído e 
   real do iPhone, nem o comportamento dos realces.
 - Modo Cinema: falta confirmar se o desfoque de fundo vem aplicado no arquivo exportado
   (no álbum, exportar a versão renderizada, não o original com dados de profundidade).
+- Fonte da legenda: o libass acha a fonte pela família (nameID 16/1) com negrito/itálico do
+  estilo; o nome completo ("Inter Display Medium Italic") não foi reconhecido no teste. Por isso
+  `marca.ler_fonte` grava família + `negrito` (peso ≥ 600) + `italico`.
 - Testes: `.venv/bin/pytest`. O teste de zoom animado compara o primeiro e o último quadro com os
   enquadramentos esperados.
