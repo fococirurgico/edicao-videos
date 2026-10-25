@@ -56,7 +56,7 @@ carregar_brew() {
 
 etapa "1/7 Homebrew"
 # O Homebrew não instala mais em Mac Intel. Nele, sem Homebrew já instalado, Python e ffmpeg
-# vêm prontos para a pasta bin/ do programa (uv e build do evermeet.cx), sem pedir senha.
+# vêm prontos para a pasta bin/ do programa (uv e pacote imageio-ffmpeg), sem pedir senha.
 SEM_BREW=0
 if command -v brew >/dev/null 2>&1 || carregar_brew; then
   :
