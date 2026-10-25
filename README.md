@@ -80,7 +80,7 @@ Abra o Terminal, cole a linha abaixo e tecle Enter (Mac Intel ou Apple Silicon, 
 
 Ela baixa o programa para `~/edicao-videos` (fora de Documentos e da Mesa, que o iCloud pode sincronizar) e roda o `instalar.command` de lá. Quem já tem a pasta do programa pode rodar `bash instalar.command` dentro dela.
 
-O instalador cuida de tudo: Homebrew, ffmpeg e Python; o Whisper certo para o Mac (Intel ou Apple Silicon); o Claude Code com login na sua conta; o download do modelo de transcrição; a identidade de marca (opcional); e o app **Editar vídeo** na Mesa. Para editar, arraste o vídeo para esse ícone. Rodar o instalador de novo é seguro: ele só instala o que faltar.
+O instalador cuida de tudo: ffmpeg e Python (pelo Homebrew no Apple Silicon; no Mac Intel, onde o Homebrew não instala mais, Python pelo `uv` e ffmpeg do evermeet.cx, na pasta `bin/` do programa); o Whisper certo para o Mac (Intel ou Apple Silicon); o Claude Code com login na sua conta; o download do modelo de transcrição; a identidade de marca (opcional); e o app **Editar vídeo** na Mesa. Para editar, arraste o vídeo para esse ícone. Rodar o instalador de novo é seguro: ele só instala o que faltar.
 
 Uso pelo Terminal, dentro da pasta do projeto:
 
@@ -126,4 +126,4 @@ A paleta completa fica guardada para o material de apoio, que ainda não foi imp
 
 ## Status
 
-Protótipo 0.6.1. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).
+Protótipo 0.6.2. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).

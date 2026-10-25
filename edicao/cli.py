@@ -101,10 +101,18 @@ def medir(video: Path, cfg: dict) -> None:
 
 
 def _completar_path() -> None:
-    """Garante ffmpeg (Homebrew) e claude no PATH mesmo quando aberto pelo app de arrastar."""
+    """Garante ffmpeg e claude no PATH mesmo quando aberto pelo app de arrastar.
+
+    No Mac Intel sem Homebrew, o instalador põe ffmpeg e ffprobe em `bin/` da pasta do programa,
+    com um fonts.conf para o fontconfig embutido achar as fontes do Mac.
+    """
+    bin_programa = config.RAIZ / "bin"
     extras = ["/opt/homebrew/bin", "/usr/local/bin", str(Path.home() / ".local/bin")]
     atual = os.environ.get("PATH", "").split(os.pathsep)
-    os.environ["PATH"] = os.pathsep.join(atual + [p for p in extras if p not in atual])
+    inicio = [str(bin_programa)] if (bin_programa / "ffmpeg").exists() else []
+    os.environ["PATH"] = os.pathsep.join(inicio + atual + [p for p in extras if p not in atual])
+    if inicio and (bin_programa / "fonts.conf").exists():
+        os.environ.setdefault("FONTCONFIG_FILE", str(bin_programa / "fonts.conf"))
 
 
 def main() -> None:

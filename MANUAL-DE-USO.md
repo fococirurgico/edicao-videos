@@ -23,7 +23,8 @@ Guia curto para instalar e usar a edição automática de vídeos num Mac. Detal
    Documentos e Mesa) e instala tudo. Não mude essa pasta de lugar: o app de editar aponta para ela.
    Não precisa de conta no GitHub. Vale para Mac Intel e Apple Silicon.
 3. Siga as instruções na tela:
-   - O Mac pede a senha uma vez. Ao digitar, nada aparece; é normal.
+   - No Mac com chip Apple (M1, M2...), o Mac pede a senha uma vez. Ao digitar, nada aparece; é
+     normal. No Mac Intel, não pede.
    - Na primeira vez, o Claude Code abre o navegador para você entrar na sua conta. Depois de
      entrar, digite `/exit` e tecle Enter para o instalador continuar.
    - O instalador pergunta se você quer configurar a identidade de marca (veja abaixo).

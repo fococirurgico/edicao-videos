@@ -55,20 +55,73 @@ carregar_brew() {
 }
 
 etapa "1/7 Homebrew"
-if ! command -v brew >/dev/null 2>&1 && ! carregar_brew; then
+# O Homebrew não instala mais em Mac Intel. Nele, sem Homebrew já instalado, Python e ffmpeg
+# vêm prontos para a pasta bin/ do programa (uv e build do evermeet.cx), sem pedir senha.
+SEM_BREW=0
+if command -v brew >/dev/null 2>&1 || carregar_brew; then
+  :
+elif [ "$(uname -m)" = "arm64" ]; then
   echo "Instalando o Homebrew. Ele vai pedir a senha do Mac (ao digitar, nada aparece; é normal)."
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   carregar_brew
+else
+  SEM_BREW=1
 fi
-BREW="$(command -v brew)"
-if ! grep -qs "$BREW shellenv" "$HOME/.zprofile"; then
-  echo "eval \"\$($BREW shellenv)\"" >> "$HOME/.zprofile"
+if [ "$SEM_BREW" = "1" ]; then
+  echo "ok: Mac Intel sem Homebrew; Python e ffmpeg vão para $PASTA/bin"
+else
+  BREW="$(command -v brew)"
+  if ! grep -qs "$BREW shellenv" "$HOME/.zprofile"; then
+    echo "eval \"\$($BREW shellenv)\"" >> "$HOME/.zprofile"
+  fi
+  echo "ok: $BREW"
 fi
-echo "ok: $BREW"
 
 etapa "2/7 ffmpeg e Python"
-brew install ffmpeg python@3.12
-PYTHON="$(brew --prefix python@3.12)/bin/python3.12"
+if [ "$SEM_BREW" = "1" ]; then
+  mkdir -p bin
+  if [ ! -x bin/uv ]; then
+    curl -fsSL https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-apple-darwin.tar.gz \
+      | tar -xz -C bin --strip-components 1
+  fi
+  bin/uv python install 3.12
+  for prog in ffmpeg ffprobe; do
+    if [ ! -x "bin/$prog" ]; then
+      ZIP="$(mktemp -d)"
+      if ! curl -fsSL -o "$ZIP/$prog.zip" "https://evermeet.cx/ffmpeg/getrelease/$prog/zip"; then
+        aviso "Não consegui baixar o $prog (evermeet.cx). Confira a internet e rode a linha de instalação de novo."
+        exit 1
+      fi
+      unzip -oq "$ZIP/$prog.zip" -d bin
+      rm -rf "$ZIP"
+      chmod +x "bin/$prog"
+    fi
+  done
+  # O fontconfig embutido nesse ffmpeg não sabe onde ficam as fontes do Mac.
+  cat > bin/fonts.conf <<'XML'
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>/System/Library/Fonts</dir>
+  <dir>/Library/Fonts</dir>
+  <dir>~/Library/Fonts</dir>
+  <cachedir>~/Library/Caches/edicao-videos/fontconfig</cachedir>
+</fontconfig>
+XML
+  export PATH="$PASTA/bin:$PATH"
+  export FONTCONFIG_FILE="$PASTA/bin/fonts.conf"
+else
+  brew install ffmpeg python@3.12
+  PYTHON="$(brew --prefix python@3.12)/bin/python3.12"
+fi
+FILTROS="$(ffmpeg -hide_banner -filters 2>/dev/null || true)"
+if ! grep -q " subtitles " <<<"$FILTROS"; then
+  aviso "Este ffmpeg não tem legendas (libass): os vídeos vão sair sem legenda. Mande esta mensagem para o suporte."
+elif ! grep -q " zscale " <<<"$FILTROS"; then
+  aviso "Este ffmpeg não converte HDR (zscale): vídeos em HDR podem sair com cores lavadas."
+else
+  echo "ok: $(command -v ffmpeg) com legendas e conversão HDR"
+fi
 
 etapa "3/7 Ambiente do projeto"
 if [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = "1" ]; then
@@ -81,7 +134,13 @@ if [ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" = "1" ]; then
 else
   EXTRA="intel"
 fi
-[ -d .venv ] || "$PYTHON" -m venv .venv
+if [ ! -d .venv ]; then
+  if [ "$SEM_BREW" = "1" ]; then
+    bin/uv venv --python 3.12 --seed .venv
+  else
+    "$PYTHON" -m venv .venv
+  fi
+fi
 .venv/bin/pip install --quiet --upgrade pip
 .venv/bin/pip install --quiet -e ".[$EXTRA]"
 echo "ok: transcrição no modo $EXTRA"
