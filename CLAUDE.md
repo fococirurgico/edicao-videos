@@ -38,7 +38,7 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 
 ## Próximos passos
 
-1. Usuário tornar o repositório público, instalar pela linha do curl e testar nos dois Macs (4K e 1080p, modo Cinema com HDR); relatar tempos e qualidade.
+1. Usuário instalar pela linha do curl (repositório público desde 25/10/2026) e testar nos dois Macs (4K e 1080p, modo Cinema com HDR); relatar tempos e qualidade.
 2. Álbum do Fotos (osxphotos): ler "Para editar", importar o resultado em "Editados".
 3. Material de apoio: encaixe pelo Claude, tela dividida, desfoque.
 4. Inspiração em conta de referência (ideia em aberto, ver Notion): perfil de estilo gerado a partir
