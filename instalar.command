@@ -77,50 +77,18 @@ else
   echo "ok: $BREW"
 fi
 
-etapa "2/7 ffmpeg e Python"
+etapa "2/7 Python e ffmpeg"
 if [ "$SEM_BREW" = "1" ]; then
+  # O ffmpeg vem na etapa 3, pelo pacote imageio-ffmpeg (já tem legendas e conversão HDR).
   mkdir -p bin
   if [ ! -x bin/uv ]; then
     curl -fsSL https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-apple-darwin.tar.gz \
       | tar -xz -C bin --strip-components 1
   fi
   bin/uv python install 3.12
-  for prog in ffmpeg ffprobe; do
-    if [ ! -x "bin/$prog" ]; then
-      ZIP="$(mktemp -d)"
-      if ! curl -fsSL -o "$ZIP/$prog.zip" "https://evermeet.cx/ffmpeg/getrelease/$prog/zip"; then
-        aviso "Não consegui baixar o $prog (evermeet.cx). Confira a internet e rode a linha de instalação de novo."
-        exit 1
-      fi
-      unzip -oq "$ZIP/$prog.zip" -d bin
-      rm -rf "$ZIP"
-      chmod +x "bin/$prog"
-    fi
-  done
-  # O fontconfig embutido nesse ffmpeg não sabe onde ficam as fontes do Mac.
-  cat > bin/fonts.conf <<'XML'
-<?xml version="1.0"?>
-<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
-<fontconfig>
-  <dir>/System/Library/Fonts</dir>
-  <dir>/Library/Fonts</dir>
-  <dir>~/Library/Fonts</dir>
-  <cachedir>~/Library/Caches/edicao-videos/fontconfig</cachedir>
-</fontconfig>
-XML
-  export PATH="$PASTA/bin:$PATH"
-  export FONTCONFIG_FILE="$PASTA/bin/fonts.conf"
 else
   brew install ffmpeg python@3.12
   PYTHON="$(brew --prefix python@3.12)/bin/python3.12"
-fi
-FILTROS="$(ffmpeg -hide_banner -filters 2>/dev/null || true)"
-if ! grep -q " subtitles " <<<"$FILTROS"; then
-  aviso "Este ffmpeg não tem legendas (libass): os vídeos vão sair sem legenda. Mande esta mensagem para o suporte."
-elif ! grep -q " zscale " <<<"$FILTROS"; then
-  aviso "Este ffmpeg não converte HDR (zscale): vídeos em HDR podem sair com cores lavadas."
-else
-  echo "ok: $(command -v ffmpeg) com legendas e conversão HDR"
 fi
 
 etapa "3/7 Ambiente do projeto"
@@ -144,6 +112,36 @@ fi
 .venv/bin/pip install --quiet --upgrade pip
 .venv/bin/pip install --quiet -e ".[$EXTRA]"
 echo "ok: transcrição no modo $EXTRA"
+if [ "$SEM_BREW" = "1" ]; then
+  .venv/bin/pip install --quiet imageio-ffmpeg
+  FFMPEG="$(ls "$PASTA"/.venv/lib/python3.*/site-packages/imageio_ffmpeg/binaries/ffmpeg-* 2>/dev/null | head -1)"
+  if [ -z "$FFMPEG" ] || ! "$FFMPEG" -version >/dev/null 2>&1; then
+    aviso "Não consegui instalar o ffmpeg (pacote imageio-ffmpeg). Mande esta mensagem para o suporte."
+    exit 1
+  fi
+  ln -sf "$FFMPEG" bin/ffmpeg
+  # O fontconfig embutido nesse ffmpeg não sabe onde ficam as fontes do Mac.
+  cat > bin/fonts.conf <<'XML'
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>/System/Library/Fonts</dir>
+  <dir>/Library/Fonts</dir>
+  <dir>~/Library/Fonts</dir>
+  <cachedir>~/Library/Caches/edicao-videos/fontconfig</cachedir>
+</fontconfig>
+XML
+  export PATH="$PASTA/bin:$PATH"
+  export FONTCONFIG_FILE="$PASTA/bin/fonts.conf"
+fi
+FILTROS="$(ffmpeg -hide_banner -filters 2>/dev/null || true)"
+if ! grep -q " subtitles " <<<"$FILTROS"; then
+  aviso "Este ffmpeg não tem legendas (libass): os vídeos vão sair sem legenda. Mande esta mensagem para o suporte."
+elif ! grep -q " zscale " <<<"$FILTROS"; then
+  aviso "Este ffmpeg não converte HDR (zscale): vídeos em HDR podem sair com cores lavadas."
+else
+  echo "ok: $(command -v ffmpeg) com legendas e conversão HDR"
+fi
 
 etapa "4/7 Claude Code"
 export PATH="$PATH:$HOME/.local/bin"

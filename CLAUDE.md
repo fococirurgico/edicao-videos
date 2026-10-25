@@ -36,8 +36,8 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
   causa do iCloud), troca o código mantendo `.venv` e se executa de lá. Cria o app "Editar vídeo"
   na Mesa, no qual se arrastam os vídeos. Não pôr segredos nem dados pessoais no repositório.
 - Mac Intel sem Homebrew (o instalador do Homebrew recusa Intel desde 2026): `bin/` do programa
-  com `uv` (Python 3.12), ffmpeg/ffprobe estáticos do evermeet.cx e `fonts.conf` para o fontconfig
-  embutido; `cli._completar_path` põe `bin/` na frente do PATH e define `FONTCONFIG_FILE`.
+  com `uv` (Python 3.12), link para o ffmpeg estático do pacote `imageio-ffmpeg` (tem libass e
+  zimg; o evermeet.cx saiu do ar com erro 410) e `fonts.conf` para o fontconfig embutido; `cli._completar_path` põe `bin/` na frente do PATH e define `FONTCONFIG_FILE`.
   Apple Silicon continua com Homebrew; Intel que já tem Homebrew também.
 
 ## Próximos passos
@@ -70,7 +70,8 @@ Database 📌 Pendências conhecidas. Atualize ao avançar (marque Concluído e 
 - Fonte da legenda: o libass acha a fonte pela família (nameID 16/1) com negrito/itálico do
   estilo; o nome completo ("Inter Display Medium Italic") não foi reconhecido no teste. Por isso
   `marca.ler_fonte` grava família + `negrito` (peso ≥ 600) + `italico`.
-- ffmpeg do evermeet.cx: não deu para conferir daqui (host bloqueado no sandbox) se tem libass e
-  zscale; o instalador testa os filtros `subtitles` e `zscale` e avisa se faltar.
+- Sem ffprobe: duração, dimensões com rotação e curva HDR vêm do PyAV (`midia.py`), que já vem
+  com o faster-whisper; o pacote imageio-ffmpeg só traz o ffmpeg. O instalador testa os filtros
+  `subtitles` e `zscale` do ffmpeg e avisa se faltar.
 - Testes: `.venv/bin/pytest`. O teste de zoom animado compara o primeiro e o último quadro com os
   enquadramentos esperados.

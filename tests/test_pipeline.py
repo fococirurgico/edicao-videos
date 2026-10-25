@@ -275,6 +275,18 @@ def test_hdr_do_iphone_sai_em_sdr_sem_ficar_lavado(tmp_path):
     assert _saturacao_media(convertido) > 0.9 * original
 
 
+def test_dimensoes_respeitam_a_rotacao_do_iphone(tmp_path):
+    deitado, girado = tmp_path / "deitado.mp4", tmp_path / "girado.mov"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=s=640x360:d=0.5",
+                    "-c:v", "libx264", str(deitado)], check=True)
+    # O iPhone grava o sensor deitado e guarda a rotação como metadado (display matrix).
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-display_rotation", "-90", "-i", str(deitado),
+                    "-c", "copy", str(girado)], check=True)
+    assert midia.dimensoes(deitado) == (640, 360)
+    assert midia.dimensoes(girado) == (360, 640)
+    assert midia.duracao(girado) == pytest.approx(0.5, abs=0.05)
+
+
 # Identidade de marca e configuração por computador
 
 def test_config_do_computador_sobrepoe_o_padrao_e_sobrevive_a_novas_chaves():

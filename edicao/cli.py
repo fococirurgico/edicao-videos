@@ -103,8 +103,8 @@ def medir(video: Path, cfg: dict) -> None:
 def _completar_path() -> None:
     """Garante ffmpeg e claude no PATH mesmo quando aberto pelo app de arrastar.
 
-    No Mac Intel sem Homebrew, o instalador põe ffmpeg e ffprobe em `bin/` da pasta do programa,
-    com um fonts.conf para o fontconfig embutido achar as fontes do Mac.
+    No Mac Intel sem Homebrew, o instalador põe o ffmpeg (do imageio-ffmpeg) em `bin/` da pasta do
+    programa, com um fonts.conf para o fontconfig embutido achar as fontes do Mac.
     """
     bin_programa = config.RAIZ / "bin"
     extras = ["/opt/homebrew/bin", "/usr/local/bin", str(Path.home() / ".local/bin")]

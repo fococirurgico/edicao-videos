@@ -1,48 +1,40 @@
-"""Chamadas ao ffmpeg/ffprobe."""
+"""Leitura dos vídeos (PyAV) e chamadas ao ffmpeg.
 
-import json
+As informações do arquivo vêm do PyAV, que já vem com o Whisper, e não do ffprobe: no Mac Intel
+sem Homebrew só há o ffmpeg (do pacote imageio-ffmpeg), sem ffprobe.
+"""
+
 import re
 import subprocess
 from pathlib import Path
 
+import av
+
 
 def duracao(video: Path) -> float:
-    saida = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", str(video)],
-        capture_output=True, text=True, check=True,
-    ).stdout
-    return float(json.loads(saida)["format"]["duration"])
+    with av.open(str(video)) as c:
+        return c.duration / av.time_base
 
 
 def dimensoes(video: Path) -> tuple[int, int]:
     """Largura e altura de exibição (vídeos do iPhone guardam a rotação como metadado)."""
-    saida = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "stream=width,height:stream_side_data=rotation:stream_tags=rotate",
-         "-of", "json", str(video)],
-        capture_output=True, text=True, check=True,
-    ).stdout
-    s = json.loads(saida)["streams"][0]
-    rotacao = int(s.get("tags", {}).get("rotate", 0))
-    for d in s.get("side_data_list", []):
-        rotacao = int(d.get("rotation", rotacao))
-    w, h = s["width"], s["height"]
+    with av.open(str(video)) as c:
+        s = c.streams.video[0]
+        rotacao = next(c.decode(s)).rotation
+        w, h = s.codec_context.width, s.codec_context.height
     return (h, w) if abs(rotacao) % 180 == 90 else (w, h)
 
 
-# Curvas de transferência HDR: HLG (padrão do iPhone, inclusive no modo Cinema) e PQ.
-TRANSFERENCIAS_HDR = ("arib-std-b67", "smpte2084")
+# Curvas de transferência HDR: HLG (padrão do iPhone, inclusive no modo Cinema) e PQ, com o
+# número do FFmpeg (AVColorTransferCharacteristic) e o nome que o filtro setparams usa.
+TRANSFERENCIAS_HDR = {18: "arib-std-b67", 16: "smpte2084"}
 
 
 def transferencia_hdr(video: Path) -> str | None:
     """Curva de transferência do vídeo se ele for HDR; None se for SDR."""
-    saida = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "stream=color_transfer", "-of", "json", str(video)],
-        capture_output=True, text=True, check=True,
-    ).stdout
-    trc = json.loads(saida)["streams"][0].get("color_transfer")
-    return trc if trc in TRANSFERENCIAS_HDR else None
+    with av.open(str(video)) as c:
+        trc = c.streams.video[0].codec_context.color_trc
+    return TRANSFERENCIAS_HDR.get(int(trc))
 
 
 def tem_filtro(nome: str) -> bool:
