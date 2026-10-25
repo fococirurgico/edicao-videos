@@ -1,19 +1,48 @@
 #!/bin/bash
 # Instalador do edicao-videos para macOS (Mac Intel ou Apple Silicon).
 #
-# Uso: abra o Terminal, digite "bash " (com espaço), arraste este arquivo para a janela e
-# tecle Enter. Pode rodar de novo quando quiser: instala só o que faltar e atualiza o resto.
+# Uso: abra o Terminal, cole a linha abaixo e tecle Enter. A mesma linha atualiza o programa.
+#
+#   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/fococirurgico/edicao-videos/main/instalar.command)"
+#
+# Rodado assim, primeiro baixa o programa para ~/edicao-videos e continua a partir de lá.
+# Também funciona de dentro da pasta do programa: bash instalar.command.
 #
 # O que faz: Homebrew, ffmpeg e Python; ambiente do projeto com o Whisper certo para este Mac;
 # Claude Code com login na sua conta; baixa o modelo de transcrição; e cria na Mesa o app
 # "Editar vídeo", no qual você arrasta os vídeos para editar.
 set -euo pipefail
 
-PASTA="$(cd "$(dirname "$0")" && pwd)"
-cd "$PASTA"
-
 etapa() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 aviso() { printf '\033[33m%s\033[0m\n' "$1"; }
+
+eh_pasta_do_programa() { [ -f "$1/pyproject.toml" ] && [ -d "$1/edicao" ]; }
+
+ORIGEM="${BASH_SOURCE[0]:-}"
+if [ -n "$ORIGEM" ] && [ -f "$ORIGEM" ] && eh_pasta_do_programa "$(dirname "$ORIGEM")"; then
+  PASTA="$(cd "$(dirname "$ORIGEM")" && pwd)"
+else
+  # Rodado pela linha do curl: baixa (ou atualiza) o programa e roda o instalador de lá.
+  # Fora de Documentos e da Mesa, que o iCloud pode sincronizar e esvaziar.
+  DESTINO="${EDICAO_INSTALAR_EM:-$HOME/edicao-videos}"
+  FONTE_URL="${EDICAO_FONTE_URL:-https://codeload.github.com/fococirurgico/edicao-videos/tar.gz/refs/heads/main}"
+  etapa "Baixando o programa para $DESTINO"
+  if [ -e "$DESTINO" ] && ! eh_pasta_do_programa "$DESTINO"; then
+    aviso "Já existe $DESTINO e não é a pasta do programa. Renomeie ou apague essa pasta e rode de novo."
+    exit 1
+  fi
+  BAIXADO="$(mktemp -d)"
+  curl -fsSL "$FONTE_URL" | tar -xz -C "$BAIXADO" --strip-components 1
+  mkdir -p "$DESTINO"
+  # Troca o código e mantém o ambiente já instalado (.venv).
+  rm -rf "$DESTINO/edicao" "$DESTINO/tests"
+  cp -R "$BAIXADO/." "$DESTINO/"
+  rm -rf "$BAIXADO"
+  chmod +x "$DESTINO/instalar.command"
+  echo "ok: programa em $DESTINO"
+  exec /bin/bash "$DESTINO/instalar.command"
+fi
+cd "$PASTA"
 
 carregar_brew() {
   for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do

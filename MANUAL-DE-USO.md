@@ -8,22 +8,29 @@ Guia curto para instalar e usar a edição automática de vídeos num Mac. Detal
 - Uma conta do Claude com Claude Code incluído (Pro, Max, Team ou Enterprise). Cada computador
   usa a conta em que estiver logado, e o uso conta no limite dessa conta. No plano gratuito, os
   vídeos saem só com corte de silêncios e legendas, sem cortes de erros, destaques nem zoom.
-- A pasta do programa. Quem tem acesso ao repositório baixa em **Code → Download ZIP** no GitHub.
-  Quem não tem pode receber o ZIP por AirDrop ou Google Drive. Não é preciso ter conta no GitHub.
 - Opcional: o manual de marca (PDF ou imagens) e o arquivo da fonte da marca (.otf ou .ttf).
 
 ## Instalar (uma vez por computador)
 
-1. Descompacte o ZIP e mova a pasta `edicao-videos-main` para **Documentos**. Depois de instalar,
-   não mude a pasta de lugar: o app de editar aponta para ela.
-2. Abra o **Terminal**, digite `bash ` (com espaço), arraste o arquivo `instalar.command` da pasta
-   para a janela e tecle Enter.
+1. Abra o **Terminal** (em Aplicativos → Utilitários, ou busque "Terminal" no Spotlight).
+2. Copie a linha abaixo, cole no Terminal e tecle Enter:
+
+   ```bash
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/fococirurgico/edicao-videos/main/instalar.command)"
+   ```
+
+   Ela baixa o programa para a pasta `edicao-videos` da sua pasta de usuário (ao lado de
+   Documentos e Mesa) e instala tudo. Não mude essa pasta de lugar: o app de editar aponta para ela.
+   Não precisa de conta no GitHub. Vale para Mac Intel e Apple Silicon.
 3. Siga as instruções na tela:
    - O Mac pede a senha uma vez. Ao digitar, nada aparece; é normal.
    - Na primeira vez, o Claude Code abre o navegador para você entrar na sua conta. Depois de
      entrar, digite `/exit` e tecle Enter para o instalador continuar.
    - O instalador pergunta se você quer configurar a identidade de marca (veja abaixo).
 4. No fim, aparece na Mesa o app **Editar vídeo**.
+
+Se você instalou antes pelo ZIP (pasta `edicao-videos-main` em Documentos), rode a linha acima e
+depois apague a pasta antiga. A identidade de marca continua.
 
 A instalação leva uns 15 minutos. Rodar o instalador de novo é seguro: ele só instala o que faltar.
 
@@ -47,7 +54,7 @@ No fim abre uma imagem de prévia da legenda. Se a fonte não for a da marca, in
 Para mudar depois, abra o Terminal na pasta do programa e use:
 
 ```bash
-cd ~/Documents/edicao-videos-main
+cd ~/edicao-videos
 .venv/bin/edicao marca                       # refaz as perguntas
 .venv/bin/edicao marca --manual manual.pdf   # lê outro manual de marca
 .venv/bin/edicao marca --mostrar             # mostra a configuração atual
@@ -69,7 +76,7 @@ mantém a última versão e corta as anteriores, assim como "corta", "de novo" e
 
 ## Atualizar o programa
 
-Baixe o ZIP novo, substitua a pasta antiga no mesmo lugar (Documentos) e rode o instalador de novo.
+Cole no Terminal a mesma linha da instalação. Ela baixa a versão nova e só instala o que faltar.
 A identidade de marca e os ajustes do computador continuam.
 
 ## Se algo der errado

@@ -72,8 +72,13 @@ A decisão usa a sua assinatura do Claude por meio do Claude Code instalado no M
 
 Instalação no Mac (uma vez):
 
-1. No GitHub, abra o repositório, clique em **Code → Download ZIP** e descompacte. Mova a pasta `edicao-videos-main` para um lugar fixo (por exemplo, Documentos): o app de editar aponta para ela.
-2. Abra o Terminal, digite `bash ` (com espaço), arraste o arquivo `instalar.command` da pasta para a janela e tecle Enter.
+Abra o Terminal, cole a linha abaixo e tecle Enter (Mac Intel ou Apple Silicon, sem conta no GitHub):
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/fococirurgico/edicao-videos/main/instalar.command)"
+```
+
+Ela baixa o programa para `~/edicao-videos` (fora de Documentos e da Mesa, que o iCloud pode sincronizar) e roda o `instalar.command` de lá. Quem já tem a pasta do programa pode rodar `bash instalar.command` dentro dela.
 
 O instalador cuida de tudo: Homebrew, ffmpeg e Python; o Whisper certo para o Mac (Intel ou Apple Silicon); o Claude Code com login na sua conta; o download do modelo de transcrição; a identidade de marca (opcional); e o app **Editar vídeo** na Mesa. Para editar, arraste o vídeo para esse ícone. Rodar o instalador de novo é seguro: ele só instala o que faltar.
 
@@ -115,10 +120,10 @@ A paleta completa fica guardada para o material de apoio, que ainda não foi imp
 ## Vários computadores e contas
 
 - **Claude:** cada computador usa a conta em que o Claude Code está logado (o instalador faz o login). O uso conta no limite dessa conta, que precisa ter o Claude Code incluído (Pro, Max, Team ou Enterprise). No plano gratuito, os vídeos saem só com corte de silêncios e legendas. Para trocar de conta, rode `claude` e digite `/login`.
-- **GitHub:** só serve para baixar a pasta do programa; a instalação e o uso não acessam o GitHub. Quem não tem acesso ao repositório pode receber o ZIP por AirDrop ou Drive.
-- **Atualizar:** baixe o ZIP novo, substitua a pasta do programa (no mesmo lugar) e rode o instalador de novo. A identidade de marca e os ajustes deste computador continuam.
+- **GitHub:** o repositório é público e a linha de instalação baixa o código sem login; o uso não acessa o GitHub.
+- **Atualizar:** rode a mesma linha da instalação. Ela troca o código em `~/edicao-videos`, mantém o ambiente (`.venv`) e só instala o que faltar. A identidade de marca e os ajustes deste computador continuam.
 - **Outros ajustes por computador:** o arquivo `config.toml` em `~/Library/Application Support/edicao-videos/` aceita qualquer seção do `config.toml` do programa (por exemplo, `[legendas] tamanho = 80`); o que estiver lá vale só naquele computador.
 
 ## Status
 
-Protótipo 0.6. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).
+Protótipo 0.6.1. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).

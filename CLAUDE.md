@@ -30,12 +30,15 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
   sobrepõe; os testes usam isso). Identidade de marca na seção `[marca]`, via `edicao marca`:
   perguntas, leitura do manual pelo Claude (`claude_json` com a ferramenta Read) ou arquivo de
   fonte copiado para `fontes/`. Paleta guardada para o material de apoio.
-- Instalação pelo `instalar.command` (o repositório é privado: o usuário baixa o ZIP e roda o
-  script pelo Terminal); ele cria o app "Editar vídeo" na Mesa, no qual se arrastam os vídeos.
+- Repositório público, para instalar sem conta no GitHub. Instalação e atualização pela linha
+  `/bin/bash -c "$(curl -fsSL .../main/instalar.command)"`: sem pasta do programa ao lado, o
+  `instalar.command` baixa o tarball do main para `~/edicao-videos` (fora de Documentos/Mesa, por
+  causa do iCloud), troca o código mantendo `.venv` e se executa de lá. Cria o app "Editar vídeo"
+  na Mesa, no qual se arrastam os vídeos. Não pôr segredos nem dados pessoais no repositório.
 
 ## Próximos passos
 
-1. Usuário instalar com o `instalar.command` e testar nos dois Macs (4K e 1080p, modo Cinema com HDR); relatar tempos e qualidade.
+1. Usuário tornar o repositório público, instalar pela linha do curl e testar nos dois Macs (4K e 1080p, modo Cinema com HDR); relatar tempos e qualidade.
 2. Álbum do Fotos (osxphotos): ler "Para editar", importar o resultado em "Editados".
 3. Material de apoio: encaixe pelo Claude, tela dividida, desfoque.
 4. Inspiração em conta de referência (ideia em aberto, ver Notion): perfil de estilo gerado a partir

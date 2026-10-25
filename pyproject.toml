@@ -1,6 +1,6 @@
 [project]
 name = "edicao-videos"
-version = "0.6.0"
+version = "0.6.1"
 description = "Pipeline automático de edição de vídeos curtos"
 requires-python = ">=3.11"
 dependencies = ["opencv-python-headless>=4.8", "numpy>=1.24", "fonttools>=4.40"]
