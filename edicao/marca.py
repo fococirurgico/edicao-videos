@@ -112,8 +112,10 @@ def ler_manual(arquivos: list[Path], cfg_decisao: dict) -> dict:
         if a.suffix.lower() not in FORMATOS_MANUAL:
             raise ValueError(f"{a.name}: use PDF ou imagem (PNG, JPG)")
     nomes = ", ".join(a.name for a in arquivos)
+    # Um manual longo é lido por partes de 20 páginas e pode passar dos 5 minutos da decisão.
+    cfg = {**cfg_decisao, "timeout": max(cfg_decisao.get("timeout", 300), 900)}
     bruto = decisao.claude_json(INSTRUCOES_MANUAL.format(arquivos=nomes), ESQUEMA_MANUAL,
-                                cfg_decisao, tuple(arquivos))
+                                cfg, tuple(arquivos))
     return validar_manual(bruto)
 
 
@@ -232,7 +234,7 @@ def _escapar(caminho: Path) -> str:
 def configurar(cfg: dict, manual: list[Path] | None, fonte: Path | None, interativo: bool) -> None:
     marca = dict(cfg["marca"])
     if manual:
-        print("Lendo o manual de marca com o Claude…")
+        print("Lendo o manual de marca com o Claude (um manual grande pode levar alguns minutos)…")
         proposta = ler_manual(manual, cfg["decisao"])
         print(resumo_manual(proposta) + "\n")
         marca = aplicar_manual(marca, proposta)
