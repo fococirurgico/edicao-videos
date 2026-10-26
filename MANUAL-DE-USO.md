@@ -75,6 +75,31 @@ cd ~/edicao-videos
 Para errar menos na edição: ao errar uma frase, faça uma pausa e repita a frase inteira. O Claude
 mantém a última versão e corta as anteriores, assim como "corta", "de novo" e "vou repetir".
 
+## Usar pelo iPhone (Termius)
+
+Dá para instalar e editar sem estar na frente do Mac, por SSH com o app Termius (de qualquer lugar
+com o Tailscale). Uma vez, no Mac: Ajustes do Sistema → Geral → Compartilhamento → **Sessão
+Remota** ligada. No Termius, crie o host com o endereço do Mac, seu usuário e a senha.
+
+- **Instalar ou atualizar:** a mesma linha de "Instalar". Mantenha o Termius aberto na tela; se a
+  conexão cair, cole a linha de novo. O login do Claude mostra um link: abra no Safari do iPhone,
+  entre e cole o código de volta.
+- **Manual de marca:** não dá para arrastar; passe o caminho entre aspas. Se o Mac tem o app
+  Google Drive, ache o arquivo com `find ~/Library/CloudStorage -iname "nome do manual.pdf"` e rode
+  `~/edicao-videos/.venv/bin/edicao marca --manual "caminho que apareceu"`.
+- **Levar o vídeo ao Mac** (sempre o arquivo original; WhatsApp tira a qualidade e o HDR):
+  - **Tailscale (Taildrop):** no Fotos, Compartilhar → Tailscale → o Mac. Chega em Downloads
+    (`ls -t ~/Downloads | head` mostra os mais recentes).
+  - **Google Drive:** envie para uma pasta "Para editar" do Drive que o Mac sincroniza. Um atalho
+    ajuda: `ln -sfn "$HOME/Library/CloudStorage/GoogleDrive-<conta>/Meu Drive/Para editar" ~/para-editar`.
+    O vídeo editado aparece na mesma pasta, e você abre no iPhone pelo app do Drive.
+  - **SFTP do Termius:** Upload para Downloads (do Fotos, salve antes em Arquivos).
+- **Editar:** `caffeinate -i ~/edicao-videos/.venv/bin/edicao processar ~/Downloads/IMG_1234.MOV`
+  (o `caffeinate` impede o Mac de dormir; mantenha o Termius aberto até 5/5).
+- **Trazer de volta:** pelo SFTP do Termius, ou copiando o `_editado.mp4` para a pasta do Drive.
+- **Trocar a conta do Claude:** rode `claude`, digite `/login`, entre com a outra conta e `/exit`.
+  Confira com `claude -p "Responda apenas: ok"`.
+
 ## Atualizar o programa
 
 Cole no Terminal a mesma linha da instalação. Ela baixa a versão nova e só instala o que faltar.

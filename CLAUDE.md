@@ -42,7 +42,11 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 
 ## Próximos passos
 
-1. Usuário instalar pela linha do curl (repositório público desde 25/10/2026) e testar nos dois Macs (4K e 1080p, modo Cinema com HDR); relatar tempos e qualidade.
+1. Testar nos dois Macs (4K e 1080p, modo Cinema com HDR); relatar tempos e qualidade. Mac Mini
+   Intel: instalado em 25/10/2026 pelo Termius (SSH via Tailscale), marca configurada com o manual
+   da NICE (Google Drive da contato@); falta editar os vídeos de teste. O usuário prefere a conta
+   lauro.al@ para as edições (Drive e/ou Claude; outra sessão está configurando o Mac Mini).
+   MacBook M2: falta instalar.
 2. Álbum do Fotos (osxphotos): ler "Para editar", importar o resultado em "Editados".
 3. Material de apoio: encaixe pelo Claude, tela dividida, desfoque.
 4. Inspiração em conta de referência (ideia em aberto, ver Notion): perfil de estilo gerado a partir
