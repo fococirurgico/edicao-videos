@@ -6,6 +6,7 @@ sem Homebrew só há o ffmpeg (do pacote imageio-ffmpeg), sem ffprobe.
 
 import re
 import subprocess
+from fractions import Fraction
 from pathlib import Path
 
 import av
@@ -23,6 +24,13 @@ def dimensoes(video: Path) -> tuple[int, int]:
         rotacao = next(c.decode(s)).rotation
         w, h = s.codec_context.width, s.codec_context.height
     return (h, w) if abs(rotacao) % 180 == 90 else (w, h)
+
+
+def fps(video: Path) -> Fraction:
+    """Taxa de quadros média (o iPhone grava a uma taxa constante: 30, 60 ou 24)."""
+    with av.open(str(video)) as c:
+        taxa = c.streams.video[0].average_rate
+    return Fraction(taxa) if taxa else Fraction(30)
 
 
 # Curvas de transferência HDR: HLG (padrão do iPhone, inclusive no modo Cinema) e PQ, com o

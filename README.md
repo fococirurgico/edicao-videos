@@ -7,9 +7,11 @@ Substitui a edição semi-automática feita hoje no app Edits (Meta), que não t
 ## O que o pipeline faz
 
 - Corta silêncios e erros/retakes
-- Gera legendas com destaque das palavras relevantes
-- Aplica variação suave de zoom para dar dinamismo
-- Exporta MP4 vertical 9:16
+- Gera legendas de uma palavra por vez, na fonte e na cor da marca, com destaques maiores
+- Corrige termos mal transcritos (ex.: "nódo" → "nódulo") antes de legendar
+- Aplica zoom no ritmo dos Reels, com movimento liso (animação com fração de pixel)
+- Põe o título do Reels no início e cartões gráficos animados (número, frase-chave, check, alerta)
+- Exporta MP4 vertical 9:16; HDR do iPhone continua HDR
 
 ## Arquitetura (A)
 
@@ -52,21 +54,31 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 - **C:** serviço pronto (Submagic, Captions, Shotstack, Creatomate). Pouco código, mas trata mal retakes e prende o estilo.
 - **Espelhamento do iPhone no Mac com o Claude operando o Edits:** possível em teoria, mas lento, impreciso e frágil.
 
-## Como usar (protótipo 0.6)
+## Como usar (protótipo 0.7)
 
 Guia passo a passo para quem vai usar: [MANUAL-DE-USO.md](MANUAL-DE-USO.md).
 
-O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", escolhe palavras de destaque e frases com zoom) e legendas com a palavra atual destacada, exportando em 1080x1920. O zoom alterna três modalidades, escolhidas pelo Claude frase a frase:
+O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", escolhe palavras de destaque, frases com zoom, o título, os elementos gráficos e as correções da transcrição), legendas de uma palavra por vez e elementos gráficos animados, exportando em 1080x1920.
 
-- **Seco:** o enquadramento salta na emenda, sem animação. Usado sobretudo logo depois de cortes de fala ou de silêncio; quando um corte deixaria o mesmo enquadramento dos dois lados, o zoom muda sozinho (salto de 0,12) para o corte não parecer um tranco.
+**Legenda:** só a palavra dita aparece, em `cor_texto`, entrando com um "pop" (cresce um pouco além do tamanho e assenta); as palavras de destaque ficam 25% maiores. Ela fica na tela até a próxima palavra começar (em pausas longas, some logo). `[legendas] palavras_por_linha` maior que 1 volta ao modo de blocos com a palavra atual colorida.
+
+**Título e elementos gráficos:** o Claude sugere um título curto (até 6 palavras), mostrado num cartão no alto nos primeiros 3,2 s (`--titulo "..."` troca, `--sem-titulo` tira), e escolhe de 1 a 4 cartões que reforçam a fala: **número** (com contagem até o valor dito), **frase-chave**, **check** (o traço se desenha) e **alerta** (o ícone balança). São animados quadro a quadro dentro do próprio arquivo de legenda (ASS): para cada quadro, posição, escala e opacidade saem de curvas com mola, e o libass desenha com fração de pixel, então o movimento é liso. Cores em `[marca]` (`cor_cartao`, `cor_cartao_escuro`, `cor_acento`...), tamanhos e tempos em `[graficos]`; `--sem-graficos` tira os cartões.
+
+**Zoom no ritmo dos Reels:** o enquadramento muda a cada corte (salto de 0,15) e, em fala contínua, pelo menos a cada 3 s (`plano_maximo`), alternando o nível com aproximação rápida e suavizada no intervalo entre duas palavras. Por cima disso, o Claude escolhe os zooms de ênfase (na maioria das frases), em três modalidades:
+
+- **Seco:** o enquadramento salta na emenda, sem animação. Usado sobretudo logo depois de cortes de fala ou de silêncio; quando um corte deixaria o mesmo enquadramento dos dois lados, o zoom muda sozinho (salto de 0,15) para o corte não parecer um tranco.
 - **Suave (cinematográfico):** aproximação lenta e contínua ao longo da frase inteira, que continua de onde parou mesmo se a frase tiver um silêncio cortado no meio.
-- **Rápido suavizado:** aproximação de 0,4 s no começo da frase, que sai rápido e assenta devagar, e depois fica parada.
+- **Rápido suavizado:** aproximação de 0,45 s no começo da frase (acelera e desacelera), que depois fica parada.
+
+Sem corte entre dois trechos, a animação parte exatamente do enquadramento anterior. Os trechos animados são gerados quadro a quadro em Python (OpenCV, interpolação bicúbica, 10 bits no HDR), com escala em progressão geométrica: o crop do ffmpeg só anda em pixels inteiros e fazia o zoom "tremer". Eles vão para um arquivo temporário sem perda (FFV1) que entra no grafo final.
 
 O zoom vai de 1,0 a 1,4 e acompanha os olhos em todas as modalidades: eles ficam centralizados na horizontal e um pouco acima do centro (42% da altura), e se algum olho fosse sair do quadro o zoom daquele trecho diminui. Ainda não: álbum do Fotos e material de apoio.
 
 Resolução: grave em 4K quando puder. Em 1080p funciona, mas no zoom de 1,4 a imagem é ampliada 1,4 vez e perde um pouco de nitidez (o mesmo que acontece no Edits).
 
-HDR: o iPhone grava em HDR (HLG) por padrão, inclusive no modo Cinema. O pipeline detecta isso e converte para SDR na renderização, sem deixar a imagem lavada; não é preciso desligar o HDR. A saída é sempre SDR (BT.709), que o Instagram exibe de forma previsível.
+HDR: o iPhone grava em HDR (HLG) por padrão, inclusive no modo Cinema. Por padrão o vídeo sai em HDR também (HEVC 10 bits, HLG, BT.2020; `[video] hdr = "manter"`). Legenda e gráficos são desenhados numa camada transparente em SDR e convertidos para HLG antes de sobrepor (branco SDR = 203 nits, BT.2408), para as cores da marca saírem iguais. `hdr = "converter"` volta à saída SDR (BT.709).
+
+Qualidade: SDR em H.264 com CRF 17 e preset `slow` (antes CRF 20 e `medium`), perfil High; HDR em HEVC CRF 18. Áudio AAC 256 kbps.
 
 A decisão usa a sua assinatura do Claude por meio do Claude Code instalado no Mac (`claude -p`), sem chave de API. Se o Claude Code falhar ou o limite de uso estourar, o vídeo sai mesmo assim, só com o corte de silêncios. A API fica como opção em `config.toml` (`[decisao] backend = "api"`).
 
@@ -126,4 +138,4 @@ A paleta completa fica guardada para o material de apoio, que ainda não foi imp
 
 ## Status
 
-Protótipo 0.6.3. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).
+Protótipo 0.7.0. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).

@@ -1,4 +1,5 @@
-"""Decisão de edição pelo Claude: quais frases ficam, o que destacar e onde dar zoom.
+"""Decisão de edição pelo Claude: quais frases ficam, o que destacar, onde dar zoom, o título,
+os elementos gráficos e as correções da transcrição.
 
 O Claude recebe a transcrição dividida em frases numeradas e devolve só IDs e palavras;
 os tempos vêm sempre da transcrição, nunca da resposta do modelo.
@@ -37,9 +38,15 @@ class Decisao:
     # Modalidade de cada zoom: "seco" (salto na emenda), "suave" (aproximação lenta ao longo
     # da frase) ou "rapido" (aproximação curta e suavizada no início da frase).
     tipo_zoom: dict[int, str] = field(default_factory=dict)
+    titulo: str = ""
+    # Elementos gráficos: {"frase", "tipo", "texto", "detalhe"} (tipos em graficos.TIPOS).
+    elementos: list[dict] = field(default_factory=list)
+    # Palavras mal transcritas: {"frase", "errado", "certo"}.
+    correcoes: list[dict] = field(default_factory=list)
 
 
 TIPOS_ZOOM = ("seco", "suave", "rapido")
+TIPOS_ELEMENTO = ("numero", "frase", "check", "alerta")
 
 ESQUEMA = {
     "type": "object",
@@ -62,8 +69,38 @@ ESQUEMA = {
             },
             "description": "Frases com zoom, o nível (1.0 a 1.4) e a modalidade.",
         },
+        "titulo": {"type": "string", "description": "Título curto do Reels, mostrado no início."},
+        "elementos": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "frase": {"type": "integer"},
+                    "tipo": {"type": "string", "enum": list(TIPOS_ELEMENTO)},
+                    "texto": {"type": "string"},
+                    "detalhe": {"type": "string"},
+                },
+                "required": ["frase", "tipo", "texto", "detalhe"],
+                "additionalProperties": False,
+            },
+            "description": "Elementos gráficos que aparecem durante a frase.",
+        },
+        "correcoes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "frase": {"type": "integer"},
+                    "errado": {"type": "string"},
+                    "certo": {"type": "string"},
+                },
+                "required": ["frase", "errado", "certo"],
+                "additionalProperties": False,
+            },
+            "description": "Trechos mal transcritos e a forma correta.",
+        },
     },
-    "required": ["manter", "destaques", "zoom"],
+    "required": ["manter", "destaques", "zoom", "titulo", "elementos", "correcoes"],
     "additionalProperties": False,
 }
 
@@ -80,18 +117,35 @@ Decida a edição:
 2. destaques: palavras-chave que merecem cor na legenda (números, termos técnicos, a ideia central).
    No máximo uma a cada 5 segundos. Escreva exatamente como aparecem na transcrição.
 3. zoom: frases que ganham aproximação, com nível entre 1.0 e {zoom_maximo} e uma modalidade (tipo).
-   O enquadramento acompanha os olhos automaticamente. Alterne as três modalidades:
+   O enquadramento acompanha os olhos automaticamente. O programa já troca o enquadramento a
+   cada corte e a cada ~3 s de fala contínua (padrão dos Reels); o seu zoom é o de ênfase, por
+   cima disso. Alterne as três modalidades:
    - "seco": o enquadramento salta para o nível na emenda, sem animação. É a escolha natural
      para frases marcadas com ✂ (logo depois de um corte de fala ou de silêncio), porque o salto
-     disfarça o corte. Níveis de 1.1 a 1.3.
+     disfarça o corte. Níveis de 1.15 a 1.3.
    - "suave": aproximação lenta e contínua ao longo da frase inteira, cinematográfica. Para
      frases reflexivas, de explicação ou de emoção, de preferência com mais de 3 segundos.
-     Níveis de 1.1 a 1.25.
+     Níveis de 1.15 a 1.3.
    - "rapido": aproximação curta e suavizada no começo da frase, que depois fica parada.
      Para impacto: gancho inicial, número forte, frase de efeito, chamada para ação.
-     Níveis de 1.2 a {zoom_maximo}.
-   Evite a mesma modalidade e o mesmo nível em frases seguidas; cerca de uma frase a cada duas
-   ou três com zoom é um bom ritmo.
+     Níveis de 1.25 a {zoom_maximo}.
+   Evite a mesma modalidade e o mesmo nível em frases seguidas. Dê zoom na maioria das frases:
+   mais da metade delas, e sempre na primeira (gancho) e na última (fechamento).
+4. titulo: o título do Reels, mostrado num cartão nos primeiros segundos. Curto (até 6 palavras,
+   no máximo 40 caracteres), claro para leigos, no tom da marca; pode ser uma pergunta. Sem
+   emoji, sem hashtag e sem ponto final.
+5. elementos: cartões gráficos animados que reforçam a fala, em frases-chave. Tipos:
+   - "numero": um número ou porcentagem dito na frase (texto: "90%", "3 cm", "1 em 10");
+     detalhe: o que o número significa, em até 5 palavras.
+   - "frase": a ideia central da frase em até 6 palavras (texto); detalhe vazio.
+   - "check": algo positivo, um benefício ou uma resposta "sim" (texto em até 5 palavras).
+   - "alerta": um cuidado, risco ou "não faça" (texto em até 5 palavras).
+   Use de 1 a 4 elementos, só onde reforçam a mensagem, separados por pelo menos 6 segundos e
+   nunca na primeira frase (o título aparece nela). Use só o que foi dito: não invente números.
+6. correcoes: palavras que a transcrição automática errou, com a forma correta pelo contexto
+   (ex.: termos médicos: errado "ar de frequência", certo "radiofrequência"; errado "nódo",
+   certo "nódulo"). "errado" deve aparecer exatamente na frase indicada. Só corrija o que tem
+   certeza; não reescreva o estilo da fala.
 
 Transcrição:
 """
@@ -145,11 +199,78 @@ def validar(bruto: dict, frases: list[Frase], zoom_maximo: float = 1.4) -> Decis
         return re.sub(r"[^\w]", "", t.lower())
 
     mantidas = {norm(p.texto) for f in frases if f.id in manter for p in f.palavras}
+    # Destaques podem vir já com a palavra corrigida.
+    mantidas |= {norm(p) for c in bruto.get("correcoes", []) if c.get("frase") in manter
+                 for p in str(c.get("certo", "")).split()}
     destaques = [d for d in bruto.get("destaques", []) if norm(d) and norm(d) in mantidas]
     validos = [z for z in bruto.get("zoom", []) if z.get("frase") in manter and "nivel" in z]
     zoom = {z["frase"]: min(zoom_maximo, max(1.0, float(z["nivel"]))) for z in validos}
     tipo_zoom = {z["frase"]: z.get("tipo") if z.get("tipo") in TIPOS_ZOOM else "seco" for z in validos}
-    return Decisao(manter, destaques, zoom, tipo_zoom)
+    titulo = " ".join(str(bruto.get("titulo", "")).split())[:60]
+    elementos = [
+        {"frase": e["frase"], "tipo": e["tipo"], "texto": " ".join(str(e["texto"]).split())[:48],
+         "detalhe": " ".join(str(e.get("detalhe", "")).split())[:60]}
+        for e in bruto.get("elementos", [])
+        if e.get("frase") in manter and e.get("tipo") in TIPOS_ELEMENTO and str(e.get("texto", "")).strip()
+    ]
+    textos = {f.id: norm_frase(f) for f in frases}
+    correcoes = [
+        {"frase": c["frase"], "errado": c["errado"], "certo": " ".join(str(c["certo"]).split())}
+        for c in bruto.get("correcoes", [])
+        if c.get("frase") in textos and str(c.get("certo", "")).strip()
+        and _tokens(c.get("errado", "")) and _achar(textos[c["frase"]], _tokens(c["errado"])) is not None
+    ]
+    return Decisao(manter, destaques, zoom, tipo_zoom, titulo, elementos, correcoes)
+
+
+def _tokens(texto: str) -> list[str]:
+    return [t for t in (re.sub(r"[^\w]", "", p.lower()) for p in str(texto).split()) if t]
+
+
+def norm_frase(f: Frase) -> list[str]:
+    return [re.sub(r"[^\w]", "", p.texto.lower()) for p in f.palavras]
+
+
+def _achar(palavras: list[str], alvo: list[str]) -> int | None:
+    for i in range(len(palavras) - len(alvo) + 1):
+        if palavras[i:i + len(alvo)] == alvo:
+            return i
+    return None
+
+
+def aplicar_correcoes(frases: list[Frase], correcoes: list[dict]) -> list[Palavra]:
+    """Palavras de todas as frases com as correções aplicadas.
+
+    O trecho errado é trocado pelas palavras certas, que dividem o tempo dele em partes
+    proporcionais ao tamanho; a pontuação no fim do trecho original é mantida.
+    """
+    por_frase: dict[int, list[dict]] = {}
+    for c in correcoes:
+        por_frase.setdefault(c["frase"], []).append(c)
+    resultado: list[Palavra] = []
+    for f in frases:
+        palavras = list(f.palavras)
+        for c in por_frase.get(f.id, []):
+            alvo = _tokens(c["errado"])
+            i = _achar([re.sub(r"[^\w]", "", p.texto.lower()) for p in palavras], alvo)
+            if i is None:
+                continue
+            trecho = palavras[i:i + len(alvo)]
+            novas = c["certo"].split()
+            pontuacao = re.search(r"[^\w]*$", trecho[-1].texto).group()
+            if pontuacao and not novas[-1].endswith(pontuacao):
+                novas[-1] += pontuacao
+            ini, fim = trecho[0].inicio, trecho[-1].fim
+            pesos = [len(n) for n in novas]
+            total, acumulado = sum(pesos), 0
+            substitutas = []
+            for n, peso in zip(novas, pesos):
+                a = ini + (fim - ini) * acumulado / total
+                acumulado += peso
+                substitutas.append(Palavra(n, a, ini + (fim - ini) * acumulado / total))
+            palavras[i:i + len(alvo)] = substitutas
+        resultado += palavras
+    return resultado
 
 
 def decidir(frases: list[Frase], cfg: dict, marca: dict | None = None) -> Decisao:

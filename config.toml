@@ -35,10 +35,14 @@ margem_olhos = 0.12
 # Quadros analisados por segundo para achar os olhos.
 amostras_por_segundo = 5
 # Duração da aproximação no zoom "rápido" (segundos).
-duracao_zoom_rapido = 0.4
+duracao_zoom_rapido = 0.45
 # Corte seco: quando a fala é cortada e o enquadramento ficaria igual dos dois lados,
 # o zoom muda nesse valor para disfarçar o corte. 0 desliga.
-salto_nos_cortes = 0.12
+salto_nos_cortes = 0.15
+# Ritmo dos Reels: em fala contínua, o enquadramento muda pelo menos a cada `plano_maximo`
+# segundos, alternando o nível em `variacao_ritmo` com aproximação suave. 0 desliga.
+plano_maximo = 3.0
+variacao_ritmo = 0.15
 
 [cortes]
 # Volume abaixo do qual o áudio conta como silêncio (dB).
@@ -68,20 +72,60 @@ cor_texto = "#FFFFFF"
 cor_palavra_atual = "#FFD400"
 cor_destaque = "#00E5FF"
 cor_contorno = "#000000"
+# Cores dos elementos gráficos (título e cartões): cartão claro e o texto dele, cartão escuro
+# e o texto dele, e a cor de acento (barras, ícones, números).
+cor_cartao = "#FFFFFF"
+cor_texto_cartao = "#111111"
+cor_cartao_escuro = "#111111"
+cor_texto_escuro = "#FFFFFF"
+cor_acento = "#FFD400"
 # Paleta completa da marca (hex), para usos futuros como o material de apoio.
 cores = []
 
 [legendas]
-tamanho = 72
-# Espessura do contorno das letras, em pixels.
-contorno = 6
-palavras_por_linha = 3
+tamanho = 110
+# Espessura do contorno das letras e da sombra, em pixels.
+contorno = 5
+sombra = 3
+# 1 = só a palavra dita aparece, em cor_texto. Mais de 1 = blocos com a palavra atual em
+# cor_palavra_atual e os destaques em cor_destaque.
+palavras_por_linha = 1
+# Entrada com "pop" de cada palavra (só no modo de uma palavra por vez).
+animacao = true
+# Tamanho das palavras de destaque, em % do normal (modo de uma palavra por vez).
+escala_destaque = 125
 # Distância da legenda até a borda de baixo, em pixels (vídeo 1080x1920).
 margem_inferior = 520
+
+[graficos]
+# Título do Reels num cartão no início (sugerido pelo Claude; `--titulo` ou `--sem-titulo`).
+titulo = true
+duracao_titulo = 3.2
+tamanho_titulo = 100
+# Altura do centro do título e dos cartões, em pixels a partir do topo (vídeo 1080x1920).
+altura_titulo = 290
+altura_elementos = 285
+# Cartões durante a fala (número, frase-chave, check, alerta), escolhidos pelo Claude.
+elementos = true
+duracao_minima = 2.2
+duracao_maxima = 4.0
+# Intervalo mínimo entre dois cartões (segundos).
+intervalo_minimo = 1.0
 
 [video]
 largura = 1080
 altura = 1920
-# "libx264" funciona em qualquer Mac; "h264_videotoolbox" usa o hardware do Mac (mais rápido).
+# Vídeo SDR: "libx264" funciona em qualquer Mac; "h264_videotoolbox" usa o hardware do Mac
+# (mais rápido, qualidade por `taxa_videotoolbox`).
 codec = "libx264"
-crf = 20
+# Qualidade do libx264: menor = melhor e maior (17 é visualmente sem perda). "slow" comprime
+# melhor que o padrão, à custa de tempo.
+crf = 17
+preset = "slow"
+taxa_videotoolbox = "20M"
+# Vídeo HDR do iPhone (HLG): "manter" sai em HDR (HEVC 10 bits); "converter" sai em SDR.
+hdr = "manter"
+# HDR: "libx265" funciona em qualquer Mac; "hevc_videotoolbox" usa o hardware (Apple Silicon).
+codec_hdr = "libx265"
+crf_hdr = 18
+preset_hdr = "medium"

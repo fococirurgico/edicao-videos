@@ -11,10 +11,12 @@ import platform
 import time
 from pathlib import Path
 
-from . import config, decisao, legendas, marca, midia, plano, render, rosto, transcricao
+from . import config, decisao, graficos, legendas, marca, midia, plano, render, rosto, transcricao
 
 
-def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None) -> None:
+def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None,
+              titulo: str | None = None) -> None:
+    """titulo: sobrepõe o título sugerido pelo Claude ("" = sem título)."""
     c = cfg["cortes"]
     total = midia.duracao(video)
 
@@ -41,12 +43,19 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     if frases:
         trechos = plano.aplicar_decisao(trechos, frases, d, c["folga"])
     cortadas = len(frases) - len(d.manter)
-    print(f"    {cortadas} frases cortadas, {len(d.destaques)} destaques, {len(d.zoom)} zooms")
+    print(f"    {cortadas} frases cortadas, {len(d.destaques)} destaques, {len(d.zoom)} zooms, "
+          f"{len(d.elementos)} elementos, {len(d.correcoes)} correções")
+    if d.titulo:
+        print(f"    título sugerido: {d.titulo}")
     print(f"    {total:.1f}s → {sum(t.duracao for t in trechos):.1f}s")
+    if d.correcoes:
+        palavras = decisao.aplicar_correcoes(frases, d.correcoes)
 
     e = cfg["enquadramento"]
-    plano.planejar_movimento(trechos, e["duracao_zoom_rapido"], e["salto_nos_cortes"],
-                             cfg["decisao"]["zoom_maximo"])
+    zoom_maximo = cfg["decisao"]["zoom_maximo"]
+    plano.saltar_nos_cortes(trechos, e["salto_nos_cortes"], zoom_maximo)
+    trechos = plano.aplicar_ritmo(trechos, palavras, e["plano_maximo"], e["variacao_ritmo"], zoom_maximo)
+    plano.planejar_movimento(trechos, e["duracao_zoom_rapido"], 0, zoom_maximo)
     W, H = midia.dimensoes(video)
     olhos = []
     if e["rastrear_rosto"]:
@@ -56,24 +65,49 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     v = cfg["video"]
     proporcao = v["largura"] / v["altura"]
     reduzidos = 0
+    anterior = None
     for t in trechos:
         q = rosto.enquadrar(olhos, t.inicio, t.fim, t.zoom, W, H, proporcao,
                             e["altura_olhos"], e["margem_olhos"])
         reduzidos += q.zoom < t.zoom
         t.zoom, t.quadro = q.zoom, (q.x, q.y, q.largura, q.altura)
         if t.tipo in ("suave", "rapido"):
-            q0 = rosto.enquadrar(olhos, t.inicio, t.fim, 1.0, W, H, proporcao,
-                                 e["altura_olhos"], e["margem_olhos"])
-            t.quadro_inicial = (q0.x, q0.y, q0.largura, q0.altura)
+            if anterior and t.inicio - anterior.fim <= 0.05 and t.anim_decorrido == 0:
+                # Sem corte na fala: a animação parte exatamente de onde o trecho anterior parou.
+                t.quadro_inicial = anterior.quadro
+            else:
+                q0 = rosto.enquadrar(olhos, t.inicio, t.fim, t.zoom_inicial, W, H, proporcao,
+                                     e["altura_olhos"], e["margem_olhos"])
+                t.quadro_inicial = (q0.x, q0.y, q0.largura, q0.altura)
+            if t.quadro_inicial == t.quadro:
+                t.quadro_inicial = None          # nada a animar
+        anterior = t
     if reduzidos:
         print(f"    zoom reduzido em {reduzidos} trechos para manter os olhos no quadro")
 
-    print("4/5 gerando legendas…")
+    print("4/5 gerando legendas e elementos gráficos…")
+    fps = midia.fps(video)
+    duracao_final = sum(t.duracao for t in trechos)
+    por_id = {f.id: f for f in frases}
+    pedidos = []
+    for el in d.elementos:
+        tempos = [x for x in (plano.remapear_tempo(por_id[el["frase"]].inicio, trechos),
+                              plano.remapear_tempo(por_id[el["frase"]].fim, trechos)) if x is not None]
+        if tempos:
+            pedidos.append((el["tipo"], graficos.limpar(el["texto"]), graficos.limpar(el["detalhe"]),
+                            min(tempos), max(tempos)))
+    g = cfg["graficos"]
+    titulo = graficos.limpar(d.titulo if titulo is None else titulo)
+    programados = graficos.programar(titulo, pedidos, g, duracao_final)
+    if programados:
+        print("    " + ", ".join(f"{el.tipo} {el.inicio:.1f}s" for el in programados))
     v = cfg["video"]
     ass = saida.with_suffix(".ass")
     ass.write_text(
         legendas.gerar_ass(plano.remapear(palavras, trechos), cfg["legendas"], cfg["marca"],
-                           v["largura"], v["altura"], set(d.destaques)),
+                           v["largura"], v["altura"], set(d.destaques),
+                           graficos.gerar(programados, g, cfg["marca"], v["largura"], v["altura"], fps),
+                           [graficos.estilo(cfg["marca"])]),
         encoding="utf-8",
     )
 
@@ -81,10 +115,14 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     if hdr and not midia.tem_filtro("zscale"):
         print("    aviso: vídeo HDR, mas este ffmpeg não tem o filtro zscale; as cores podem sair lavadas")
         hdr = None
-    print("5/5 renderizando…" + (" (convertendo HDR para SDR)" if hdr else ""))
+    manter = hdr and v.get("hdr", "manter") == "manter"
+    print("5/5 renderizando…" + ((" (HDR mantido)" if manter else " (convertendo HDR para SDR)") if hdr else ""))
+    animados = sum(1 for t in trechos if t.quadro_inicial)
+    if animados:
+        print(f"    {animados} trechos com zoom animado")
     arquivo_fonte = cfg["marca"].get("arquivo_fonte")
     pasta_fontes = Path(arquivo_fonte).parent if arquivo_fonte else None
-    render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H), hdr, pasta_fontes)
+    render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H), hdr, pasta_fontes, fps)
     print(f"pronto: {saida}")
 
 
@@ -127,6 +165,9 @@ def main() -> None:
     p.add_argument("--modelo", help="sobrepõe o modelo de transcrição da configuração")
     p.add_argument("--transcricao-json", type=Path, help="usa uma transcrição já salva")
     p.add_argument("--sem-claude", action="store_true", help="pula a decisão do Claude (só corta silêncios)")
+    p.add_argument("--titulo", help="título do Reels no início (no lugar do sugerido pelo Claude)")
+    p.add_argument("--sem-titulo", action="store_true", help="sem título no início")
+    p.add_argument("--sem-graficos", action="store_true", help="sem elementos gráficos durante a fala")
 
     m = sub.add_parser("medir", help="mede a velocidade da transcrição neste Mac")
     m.add_argument("video", type=Path)
@@ -152,8 +193,10 @@ def main() -> None:
     if args.comando == "processar":
         if args.sem_claude:
             cfg["decisao"]["backend"] = "nenhum"
+        if args.sem_graficos:
+            cfg["graficos"]["elementos"] = False
         saida = args.saida or args.video.with_name(args.video.stem + "_editado.mp4")
-        processar(args.video, saida, cfg, args.transcricao_json)
+        processar(args.video, saida, cfg, args.transcricao_json, "" if args.sem_titulo else args.titulo)
     else:
         medir(args.video, cfg)
 

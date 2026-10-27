@@ -20,6 +20,16 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 - Material de apoio: o Claude encaixa prints e imagens pelo conteúdo (marca falada opcional);
   depoimento em vídeo em tela dividida com o vídeo do autor congelado; desfoque de nomes e
   fotos de perfil ligado por padrão. Ainda não implementado.
+- Legenda (26/10/2026): uma palavra por vez, na cor `cor_texto` (NICE: dourado da marca
+  #C1A752, Poppins), com pop; destaques 25% maiores. Modo de blocos continua com
+  `palavras_por_linha` > 1.
+- Zoom no ritmo dos Reels (26/10): troca a cada corte e a cada ~3 s de fala contínua; o Claude
+  dá zoom de ênfase na maioria das frases. Zoom máximo 1,4 também em 1080p (o usuário aceitou a
+  perda de nitidez: "não limite o zoom"). Animação quadro a quadro em Python (OpenCV), não no ffmpeg.
+- HDR mantido (26/10): saída HEVC 10 bits HLG quando o original é HDR. Qualidade SDR: CRF 17, slow.
+- Elementos gráficos (26/10): título do Reels no início e cartões (número, frase, check, alerta)
+  bem fluidos, no ASS quadro a quadro. Sem logo, sem barra de progresso e sem nome/titulação.
+- O Claude também corrige termos mal transcritos (a legenda de uma palavra deixa erro à mostra).
 - Postagem continua manual.
 - Vídeos em 4K ou 1080p (o usuário vai gravar parte em 1080p para poupar espaço). HDR do iPhone
   (HLG, inclusive modo Cinema) é convertido para SDR na renderização; saída sempre BT.709.
@@ -62,6 +72,17 @@ Database 📌 Pendências conhecidas. Atualize ao avançar (marque Concluído e 
 - `nota:edicao-video-inspiracao`: inspiração em conta de referência (decisão em aberto).
 
 ## Cuidados técnicos
+
+- `pyproject.toml`: `av>=14,<16` — PyAV 16+ quebra o faster-whisper 1.2.1 (`metadata_errors`).
+- `render._zerar_rotacao`: o ffmpeg 7.1 copiava a rotação -90 do iPhone para a saída já girada
+  (vídeo de lado); remux com `-display_rotation 0 -c copy` (e `-tag:v hvc1` no HEVC).
+- O filtro `perspective` do ffmpeg (que faria zoom com fração de pixel) só trabalha em 8 bits e
+  estragaria o HDR; por isso o zoom animado é feito no Python (`render.animar`).
+- Gráficos: o libass alinha desenhos pelo contorno; `Camada.caixa` fixa o contorno com pontos
+  minúsculos nos cantos. Eventos quadro a quadro têm bordas no meio entre quadros
+  ((n ± ½)/fps), para o arredondamento em centésimos não repetir nem pular quadro.
+- O tamanho de fonte do ASS é a altura "win" (ascendente + descendente): na Poppins o "em" é
+  ~71% do tamanho. `graficos.largura_texto` mede com o arquivo da fonte (fontTools).
 
 - O crop do ffmpeg guarda o tamanho do primeiro quadro (`in_w`/`in_h`); no zoom animado a
   posição do corte é calculada a partir da largura ampliada (ver `render._animacao`).

@@ -64,13 +64,22 @@ cd ~/edicao-videos
 ## Editar um vídeo
 
 1. Grave no iPhone. 4K dá mais nitidez no zoom; 1080p também funciona. HDR e modo Cinema
-   podem ficar ligados: as cores são convertidas automaticamente.
+   podem ficar ligados: o vídeo editado continua em HDR.
 2. Passe o vídeo para o Mac (por exemplo, por AirDrop para a Mesa).
 3. Arraste o vídeo (ou vários) para o ícone **Editar vídeo** na Mesa. Na primeira vez, o Mac
    pergunta se o app pode controlar o Terminal: clique em **OK**.
 4. O Terminal mostra as etapas de 1/5 a 5/5. O vídeo editado aparece ao lado do original, com
    `_editado` no nome.
 5. Mande o vídeo editado para o iPhone por AirDrop e poste.
+
+O vídeo sai com legenda de uma palavra por vez, um título no início (sugerido pelo Claude) e
+alguns cartões animados. Para escolher o título ou tirar os gráficos, use o Terminal:
+
+```bash
+cd ~/edicao-videos
+.venv/bin/edicao processar ~/Desktop/video.mov --titulo "Nódulo sem cirurgia?"
+.venv/bin/edicao processar ~/Desktop/video.mov --sem-titulo --sem-graficos
+```
 
 Para errar menos na edição: ao errar uma frase, faça uma pausa e repita a frase inteira. O Claude
 mantém a última versão e corta as anteriores, assim como "corta", "de novo" e "vou repetir".

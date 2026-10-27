@@ -20,6 +20,8 @@ class Trecho:
     quadro_inicial: tuple[int, int, int, int] | None = None
     anim_decorrido: float = 0.0
     anim_duracao: float = 0.0
+    # Nível de zoom de onde a animação parte (o do trecho anterior quando não há corte entre eles).
+    zoom_inicial: float = 1.0
 
     @property
     def duracao(self) -> float:
@@ -100,34 +102,96 @@ def _frase_em(t: float, frases) -> int | None:
     return None
 
 
+def aplicar_ritmo(trechos: list[Trecho], palavras: list[Palavra], plano_maximo: float,
+                  variacao: float, zoom_maximo: float) -> list[Trecho]:
+    """Padrão dos Reels: o enquadramento muda pelo menos a cada `plano_maximo` segundos.
+
+    Trechos "seco" ou "rapido" mais longos que isso são divididos nos intervalos entre palavras
+    mais próximos de cada `plano_maximo`; os pedaços seguintes alternam entre o nível do trecho
+    e esse nível ± `variacao`, com aproximação rápida e suavizada (sem corte na fala, a troca
+    é animada). O "suave" já se move a frase inteira e fica como está.
+    """
+    if plano_maximo <= 0 or variacao <= 0:
+        return trechos
+    resultado: list[Trecho] = []
+    for t in trechos:
+        if t.tipo == "suave" or t.duracao <= plano_maximo * 1.3:
+            resultado.append(t)
+            continue
+        vaos = [(a.fim + b.inicio) / 2 for a, b in zip(palavras, palavras[1:])
+                if t.inicio + 1.0 < (a.fim + b.inicio) / 2 < t.fim - 1.0]
+        pontos, ultimo = [], t.inicio
+        while ultimo + plano_maximo < t.fim - plano_maximo / 2:
+            candidatos = [v for v in vaos if v > ultimo + 1.2]
+            if not candidatos:
+                break
+            ultimo = min(candidatos, key=lambda v: abs(v - (ultimo + plano_maximo)))
+            pontos.append(ultimo)
+        limites = [t.inicio, *pontos, t.fim]
+        alto = t.zoom + variacao if t.zoom + variacao <= zoom_maximo else max(1.0, t.zoom - variacao)
+        for k, (a, b) in enumerate(zip(limites, limites[1:])):
+            nivel = round(alto if k % 2 else t.zoom, 2)
+            resultado.append(Trecho(a, b, nivel, tipo="rapido" if k else t.tipo, frase=t.frase))
+    return resultado
+
+
+def saltar_nos_cortes(trechos: list[Trecho], salto: float, zoom_maximo: float) -> None:
+    """Quando um trecho "seco" começa logo após um corte e ficaria no mesmo nível do anterior,
+    o nível muda em `salto` (sobe; se passar do máximo, desce): o corte vira um salto de
+    enquadramento, como nos Reels, e não um tranco."""
+    if salto <= 0:
+        return
+    for anterior, t in zip(trechos, trechos[1:]):
+        houve_corte = t.inicio - anterior.fim > 0.05
+        if houve_corte and t.tipo == anterior.tipo == "seco" and abs(t.zoom - anterior.zoom) < 0.01:
+            subir = anterior.zoom + salto
+            t.zoom = round(subir if subir <= zoom_maximo else max(1.0, anterior.zoom - salto), 2)
+
+
 def planejar_movimento(trechos: list[Trecho], duracao_rapido: float,
                        salto_nos_cortes: float, zoom_maximo: float) -> None:
     """Prepara as animações e os saltos de enquadramento (altera os trechos no lugar).
 
+    - Corte seco: ver saltar_nos_cortes (0 desliga, para quem já chamou antes do ritmo).
     - "suave": a animação atravessa a frase inteira, mesmo que ela tenha sido dividida
       por cortes de silêncio; cada pedaço continua de onde o anterior parou.
     - "rapido": a animação dura `duracao_rapido` segundos a partir do início da frase.
-    - Corte seco: quando um trecho começa logo após um corte e ficaria no mesmo nível do
-      anterior, o nível muda em `salto_nos_cortes` para o corte não parecer um tranco.
+    - A animação parte do nível do trecho anterior se não houver corte entre eles (o
+      movimento continua sem salto); depois de um corte, parte de 1,0.
     """
+    saltar_nos_cortes(trechos, salto_nos_cortes, zoom_maximo)
+
     total: dict[int, float] = {}
     for t in trechos:
         if t.tipo == "suave":
             total[t.frase] = total.get(t.frase, 0.0) + t.duracao
     decorrido: dict[int, float] = {}
-    for t in trechos:
-        if t.tipo in ("suave", "rapido"):
+    partida: dict = {}
+    for i, t in enumerate(trechos):
+        if t.tipo not in ("suave", "rapido"):
+            continue
+        chave = (t.frase, t.tipo) if t.tipo == "suave" else id(t)
+        if chave not in partida:
+            anterior = trechos[i - 1] if i > 0 else None
+            continuo = anterior is not None and t.inicio - anterior.fim <= 0.05
+            partida[chave] = anterior.zoom if continuo else 1.0
+        t.zoom_inicial = partida[chave]
+        if t.tipo == "suave":
             t.anim_decorrido = decorrido.get(t.frase, 0.0)
-            t.anim_duracao = total[t.frase] if t.tipo == "suave" else duracao_rapido
+            t.anim_duracao = total[t.frase]
             decorrido[t.frase] = t.anim_decorrido + t.duracao
+        else:
+            t.anim_duracao = duracao_rapido
 
-    if salto_nos_cortes <= 0:
-        return
-    for anterior, t in zip(trechos, trechos[1:]):
-        houve_corte = t.inicio - anterior.fim > 0.05
-        if houve_corte and t.tipo == anterior.tipo == "seco" and abs(t.zoom - anterior.zoom) < 0.01:
-            subir = anterior.zoom + salto_nos_cortes
-            t.zoom = round(subir if subir <= zoom_maximo else max(1.0, anterior.zoom - salto_nos_cortes), 2)
+
+def remapear_tempo(tempo: float, trechos: list[Trecho]) -> float | None:
+    """Instante do vídeo original na linha do tempo do vídeo cortado; None se foi cortado."""
+    deslocamento = 0.0
+    for t in trechos:
+        if t.inicio <= tempo <= t.fim:
+            return tempo - t.inicio + deslocamento
+        deslocamento += t.duracao
+    return None
 
 
 def remapear(palavras: list[Palavra], trechos: list[Trecho]) -> list[Palavra]:
