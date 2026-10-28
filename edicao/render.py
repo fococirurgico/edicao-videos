@@ -179,7 +179,7 @@ _NIVEL_H264 = "4.2"
 _NIVEL_HEVC = "5.1"
 
 
-def _codificacao(cfg_video: dict, hdr_saida: str | None) -> list[str]:
+def _codificacao(cfg_video: dict, hdr_saida: str | None, fps: Fraction) -> list[str]:
     if hdr_saida:
         prim, trc, matriz = _COR_HDR[hdr_saida]
         codec = cfg_video.get("codec_hdr", "libx265")
@@ -191,8 +191,10 @@ def _codificacao(cfg_video: dict, hdr_saida: str | None) -> list[str]:
                          "-x265-params",
                          # GOP fechado: o reprodutor da Apple mostrava quadros com blocos deslocados
                          # (open-gop do x265) ao abrir ou pular no vídeo. Nível fixo: ver _NIVEL_H264.
+                         # fps: o x265 confere o nível contra a taxa de quadros, que sem isto ele tira
+                         # da base de tempo de 1 µs e recusa abrir ("frame rate is out of range").
                          f"colorprim={prim}:transfer={trc}:colormatrix={matriz}:open-gop=0:"
-                         f"level-idc={_NIVEL_HEVC}:log-level=error"]
+                         f"fps={fps.numerator}/{fps.denominator}:level-idc={_NIVEL_HEVC}:log-level=error"]
         return ["-c:v", codec, *qualidade, "-pix_fmt", "yuv420p10le", "-tag:v", "hvc1",
                 "-color_primaries", prim, "-color_trc", trc, "-colorspace", matriz, "-color_range", "tv"]
     codec = cfg_video["codec"]
@@ -302,7 +304,7 @@ def renderizar(
         subprocess.run(
             ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *entradas,
              "-filter_complex", ";".join(filtros), "-map", "[vout]", "-map", "[ac]",
-             *_codificacao(cfg_video, hdr_saida),
+             *_codificacao(cfg_video, hdr_saida, fps),
              "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", str(saida)],
             check=True,
         )

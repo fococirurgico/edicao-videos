@@ -315,12 +315,18 @@ def test_nivel_do_video_aceito_pelo_iphone(tmp_path, hdr):
     if hdr and not midia.tem_filtro("zscale"):
         pytest.skip("ffmpeg sem zscale")
     video = tmp_path / "v.mp4"
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=gray:s=360x640:d=1:r=30",
-                    "-f", "lavfi", "-i", "sine=d=1", "-shortest", "-c:v", "libx264", "-c:a", "aac", str(video)],
-                   check=True)
+    # Taxa fracionária e um trecho com zoom animado, como num vídeo real: o x265 recusava abrir com o
+    # nível fixo ("frame rate is out of range for specified level").
+    fps = Fraction(30000, 1001)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+                    "color=c=gray:s=360x640:d=2:r=30000/1001", "-f", "lavfi", "-i", "sine=d=2", "-shortest",
+                    "-c:v", "libx264", "-c:a", "aac", str(video)], check=True)
     if hdr:
         video = _hlg(tmp_path, video)
     saida = tmp_path / "saida.mp4"
-    render.renderizar(video, [plano.Trecho(0, 1, 1.0, quadro=(0, 0, 360, 640))], None, saida,
-                      {**config.carregar()["video"], "largura": 360, "altura": 640}, 0.02, (360, 640), hdr)
+    trechos = [plano.Trecho(0, 0.8, 1.0, quadro=(0, 0, 360, 640)),
+               plano.Trecho(1.0, 1.8, 1.4, quadro=(51, 91, 257, 457), tipo="rapido",
+                            quadro_inicial=(0, 0, 360, 640), anim_duracao=0.45)]
+    render.renderizar(video, trechos, None, saida, {**config.carregar()["video"], "largura": 360, "altura": 640},
+                      0.02, (360, 640), hdr, fps=fps)
     assert _nivel(saida) == (153 if hdr else 42)
