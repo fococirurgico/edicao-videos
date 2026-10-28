@@ -162,6 +162,13 @@ legenda adiantada, tentativas erradas no meio e véu escuro no HDR. Antes de ent
   No Mac Mini não há `timeout`: use `perl -e 'alarm 40; exec @ARGV' osascript ...`. A biblioteca
   do Mac Mini é a do iCloud do usuário (~15 mil itens, álbuns "Vídeos para editar" e "Reels").
   Há álbuns com nome repetido; o editor procura e cria o álbum pelo nome exato.
+- Taxa de quadros da saída (28/10): a saída do concat tem base de tempo de 1 µs; sem `-r`, o
+  x264/x265 deduziam uma taxa absurda (nível 6.2, recusado pelo iPhone) e, com o nível fixo, o x265
+  recusava abrir ("frame rate is out of range for specified level"). `_codificacao` passa o fps ao x265. Os
+  testes sintéticos (taxa fixa, base 1/30) não reproduziam: teste com trechos do vídeo real.
+- `afftdn` atrasa o som em 1200 amostras a 48 kHz (25 ms); `tratamento_voz` compensa (corta o
+  início e completa o fim). Medir atraso de filtro com impulso, não com correlação contra o
+  original cru (a compressão e a redução de ruído deixam a correlação ambígua em trechos quietos).
 - Avisos inofensivos: `ffv1 ... bytestream end mismatching` ao ler os trechos animados e
   `non monotonically increasing dts` do muxer null ao decodificar a saída.
 

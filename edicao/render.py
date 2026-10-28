@@ -167,9 +167,15 @@ def tratamento_voz(volume_alvo: float = -14) -> str:
     """Tratamento de voz escolhido pelo usuário em 28/10/2026 (amostra "C", gravada com lapela):
     corte de graves, redução de ruído leve, um pouco de presença, compressão suave e volume no
     padrão dos Reels. A versão mais forte (afftdn nr=40, deesser, corte em 250 Hz) soou abafada."""
-    return ("highpass=f=70,afftdn=nr=10:nf=-50:tn=1,equalizer=f=4000:t=q:w=1.5:g=2,"
-            "acompressor=threshold=-24dB:ratio=2:attack=10:release=200,"
+    # O afftdn atrasa o som em 1200 amostras a 48 kHz (25 ms, medido com um impulso): sem compensar,
+    # a voz sai atrás da boca. Corta esse início e completa o fim, mantendo a duração.
+    return ("aresample=48000,highpass=f=70,afftdn=nr=10:nf=-50:tn=1,"
+            f"atrim=start_sample={_ATRASO_AFFTDN},asetpts=PTS-STARTPTS,apad=pad_len={_ATRASO_AFFTDN},"
+            "equalizer=f=4000:t=q:w=1.5:g=2,acompressor=threshold=-24dB:ratio=2:attack=10:release=200,"
             f"loudnorm=I={volume_alvo}:TP=-1.5:LRA=9,aresample=48000")
+
+
+_ATRASO_AFFTDN = 1200
 
 
 # Nível declarado no vídeo. Sem ele, com a base de tempo de 1 µs da saída (vídeo de taxa variável),

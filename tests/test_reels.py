@@ -330,3 +330,18 @@ def test_nivel_do_video_aceito_pelo_iphone(tmp_path, hdr):
     render.renderizar(video, trechos, None, saida, {**config.carregar()["video"], "largura": 360, "altura": 640},
                       0.02, (360, 640), hdr, fps=fps)
     assert _nivel(saida) == (153 if hdr else 42)
+
+
+def test_tratamento_de_voz_nao_atrasa_o_som():
+    """O afftdn atrasa 25 ms; a cadeia compensa (um impulso sai no mesmo lugar e com a mesma duração)."""
+    import numpy as np
+    sr = 48000
+    x = np.zeros(sr * 4, np.float32)
+    x[sr * 2] = 0.5
+    x += np.random.default_rng(0).normal(0, 1e-4, len(x)).astype(np.float32)
+    filtro = render.tratamento_voz(-14).replace(",loudnorm=I=-14:TP=-1.5:LRA=9,aresample=48000", "")
+    r = subprocess.run(["ffmpeg", "-v", "error", "-f", "f32le", "-ar", str(sr), "-ac", "1", "-i", "-",
+                        "-af", filtro, "-f", "f32le", "-"], input=x.tobytes(), capture_output=True, check=True)
+    y = np.frombuffer(r.stdout, np.float32)
+    assert len(y) == len(x)
+    assert abs(int(np.argmax(np.abs(y))) - sr * 2) <= 48            # até 1 ms
