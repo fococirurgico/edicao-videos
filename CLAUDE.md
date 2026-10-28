@@ -12,7 +12,9 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 - Transcrição local nos dois Macs: faster-whisper (Intel) e mlx-whisper (M2), escolha automática.
 - Decisão de edição pelo Claude via assinatura (`claude -p` com `--json-schema`), sem chave de API.
   A API fica como opção em `config.toml`. Se o Claude falhar, o vídeo sai só com corte de silêncios.
-- Só são cortadas as frases que o Claude manda remover; áudio não transcrito permanece.
+- Fica no vídeo só a fala das palavras que o Claude manteve (28/10/2026, muda a regra antiga
+  "áudio não transcrito permanece"): com a regra antiga, as tentativas erradas que o Whisper
+  pulava ficavam no vídeo. Na dúvida sobre uma frase, o Claude mantém; fala não transcrita sai.
 - Zoom de 1,0 a 1,4 acompanhando os olhos, a 42% da altura (um pouco acima do centro);
   o zoom diminui se algum olho fosse sair da margem.
 - Três modalidades de zoom, escolhidas pelo Claude por frase: seco (salto na emenda, natural
@@ -30,6 +32,15 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 - Elementos gráficos (26/10): título do Reels no início e cartões (número, frase, check, alerta)
   bem fluidos, no ASS quadro a quadro. Sem logo, sem barra de progresso e sem nome/titulação.
 - O Claude também corrige termos mal transcritos (a legenda de uma palavra deixa erro à mostra).
+- Caixinha de pergunta do Instagram no início (`--pergunta "..."`, 28/10), no lugar do título:
+  preto e branco, só texto ("Faça uma pergunta" + a pergunta digitada letra a letra). A versão
+  com avatar e cores da marca foi recusada pelo usuário.
+- Áudio (28/10): só ganho fixo até -14 LUFS com limitador de picos. Redução de ruído/tratamento
+  de voz NÃO está ligado: a amostra com `highpass 80, afftdn nr=40 nf=-30, EQ -2 dB em 250 Hz e
+  +2,5 dB em 3,5 kHz, deesser, acompressor, loudnorm` soou abafada para o usuário. Próxima
+  tentativa (pendente, com o vídeo de lapela): afftdn nr≈12, sem deesser e sem o corte em 250 Hz.
+- Fluxo de teste atual (28/10): o usuário põe o vídeo em Meu Drive/Vídeos (conta lauro.al@) e o
+  editado volta em Meu Drive/Vídeos/Vídeos Editados; processamento no Mac Mini em ~/edicao-teste.
 - Postagem continua manual.
 - Vídeos em 4K ou 1080p (o usuário vai gravar parte em 1080p para poupar espaço). HDR do iPhone
   (HLG, inclusive modo Cinema) é mantido (ver acima); com `hdr` diferente de "manter" no
@@ -54,10 +65,9 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 ## Próximos passos
 
 1. Testar nos dois Macs (4K e 1080p, modo Cinema com HDR); relatar tempos e qualidade. Mac Mini
-   Intel: instalado em 25/10/2026 pelo Termius (SSH via Tailscale), marca configurada com o manual
-   da NICE (Google Drive da contato@); falta editar os vídeos de teste. O usuário prefere a conta
-   lauro.al@ para as edições (Drive e/ou Claude; outra sessão está configurando o Mac Mini).
-   MacBook M2: falta instalar.
+   Intel: instalado em 25/10/2026; testado com IMG_3878 (iPhone, 1080p SDR, aprovado na 0.7),
+   dois vídeos de Samsung e IMG_4038 (iPhone HLG + Dolby Vision, lapela, 28/10). Falta 4K.
+   O usuário prefere a conta lauro.al@ para as edições. MacBook M2: falta instalar.
 2. Álbum do Fotos (osxphotos): ler "Para editar", importar o resultado em "Editados".
 3. Material de apoio: encaixe pelo Claude, tela dividida, desfoque.
 4. Inspiração em conta de referência (ideia em aberto, ver Pendências): perfil de estilo gerado a partir
@@ -79,6 +89,42 @@ Registradas pela sessão do Mac Mini (sem Notion), a repassar:
 - 28/10: IMG_4038 refeito com as correções de corte, sincronia e HDR (commit d42e8dd); aguarda a
   avaliação do usuário. Pedido em aberto da mesma conversa: usar esse vídeo (lapela) para a
   amostra de tratamento de voz mais leve (a anterior soou abafada).
+
+## Como conferir uma edição (antes de entregar)
+
+Olhar quadros soltos não basta: o IMG_4038 (28/10) parecia certo numa grade de quadros e saiu com
+legenda adiantada, tentativas erradas no meio e véu escuro no HDR. Antes de entregar:
+- `ferramentas/conferir_edicao.py ORIGINAL EDITADO`: durações (plano = vídeo = áudio), volume,
+  texto que ficou (procure repetições e "não, não"), cortes e desvio do áudio em relação ao plano.
+- Ler a decisão (`*.decisao.json`): `manter`, `cortes_parciais` e `correcoes`. A decisão do Claude
+  varia de uma rodada para outra; depois de revisada, refaça só o vídeo com `--decisao-json` (e
+  `--transcricao-json`), sem pedir de novo.
+- Quadros de HDR para olhar em SDR: `zscale=t=linear:npl=203,format=gbrpf32le,zscale=p=bt709,
+  tonemap=mobius:param=0.6,zscale=t=bt709:m=bt709:r=tv,format=yuv420p`.
+- Qualidade: VMAF contra o original. O iPhone grava em taxa variável; para parear os quadros,
+  codifique com `-fps_mode passthrough` e use `setpts=N/30/TB` nos dois lados (sem isso a nota sai
+  defasada; o próprio original sem perda dava PSNR 33). IMG_3878: antiga 5,2 Mbps VMAF 96,2;
+  CRF 17 slow 7,8 Mbps VMAF 97,8. A perda de nitidez que o usuário notou vem do zoom em 1080p.
+- Testes com tolerância larga escondem defeito: o de HDR aceitava 14 níveis e deixou passar o
+  véu (9 níveis). Compare com o original, não com um valor absoluto.
+
+## O que já se viu nos vídeos do usuário
+
+- iPhone selfie: os olhos ocupam ~22% da largura do quadro (IMG_3878, IMG_4038); os cartões no
+  alto encostam no cabelo e a legenda dourada perde contraste sobre roupa clara (terno azul-claro,
+  camisa branca). Possíveis ajustes, ainda não pedidos: cartões menores, contorno mais grosso ou
+  faixa escura atrás da palavra.
+- iPhone HDR (IMG_4038): HLG com Dolby Vision perfil 8.4. A saída é HLG puro (o RPU do Dolby
+  Vision se perde), então no iPhone o original pode parecer um pouco mais brilhante.
+- Lapela (IMG_4038): gravou a -28 LUFS; por isso o volume final passou a ser normalizado.
+- Samsung (Android, 27/10): 1080x2336 (19,5:9), SDR, HEVC, pessoa longe e pequena no quadro, eco
+  de sala; o fundo (-35 a -41 dB) fica acima do limiar de silêncio (-35 dB) e nenhum silêncio é
+  detectado. O corte pelas palavras (28/10) não depende disso.
+- libx265 com CRF 18 deu só 2,8 Mbps em 1080x1920 HLG (original 13,5 Mbps); CRF 15 dá ~4,6 Mbps.
+- Tempo no Mac Mini 2011: ~6 min para 30 s em SDR; ~30 min para 80 s em HDR com 17 trechos
+  animados.
+- Avisos inofensivos: `ffv1 ... bytestream end mismatching` ao ler os trechos animados e
+  `non monotonically increasing dts` do muxer null ao decodificar a saída.
 
 ## Cuidados técnicos
 
