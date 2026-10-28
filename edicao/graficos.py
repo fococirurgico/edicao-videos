@@ -20,7 +20,7 @@ TIPOS = ("numero", "frase", "check", "alerta")
 
 @dataclass
 class Elemento:
-    tipo: str          # "titulo" ou um de TIPOS
+    tipo: str          # "titulo", "pergunta" ou um de TIPOS
     texto: str
     detalhe: str
     inicio: float      # segundos, na linha do tempo do vídeo editado
@@ -103,6 +103,14 @@ def _retangulo(w: float, h: float, r: float) -> str:
             f"l {w:.1f} {h - r:.1f} b {w:.1f} {h - k:.1f} {w - k:.1f} {h:.1f} {w - r:.1f} {h:.1f} "
             f"l {r:.1f} {h:.1f} b {k:.1f} {h:.1f} 0 {h - k:.1f} 0 {h - r:.1f} "
             f"l 0 {r:.1f} b 0 {k:.1f} {k:.1f} 0 {r:.1f} 0")
+
+
+def _retangulo_topo(w: float, h: float, r: float) -> str:
+    """Retângulo com só os cantos de cima arredondados."""
+    r = min(r, w / 2, h)
+    k = r * 0.4477
+    return (f"m {r:.1f} 0 l {w - r:.1f} 0 b {w - k:.1f} 0 {w:.1f} {k:.1f} {w:.1f} {r:.1f} "
+            f"l {w:.1f} {h:.1f} l 0 {h:.1f} l 0 {r:.1f} b 0 {k:.1f} {k:.1f} 0 {r:.1f} 0")
 
 
 def _circulo(d: float) -> str:
@@ -220,7 +228,8 @@ class Desenhista:
     def eventos(self, el: Elemento) -> list[str]:
         montar = getattr(self, f"_{el.tipo}")
         estado = montar(el)
-        y = self.cfg["altura_titulo"] if el.tipo == "titulo" else self.cfg["altura_elementos"]
+        y = {"titulo": self.cfg["altura_titulo"],
+             "pergunta": self.cfg.get("altura_pergunta", 520)}.get(el.tipo, self.cfg["altura_elementos"])
         cx = self.W / 2
         linhas = []
         primeiro = math.ceil(el.inicio * self.fps)
@@ -264,6 +273,42 @@ class Desenhista:
             ]
             if barra > 1:
                 camadas.append(Camada(0, alt / 2 - pad_y / 2 - 6, self.acento, desenho=_retangulo(barra, 8, 4)))
+            return camadas, dx, dy, escala, opac
+        return estado
+
+    def _pergunta(self, el: Elemento):
+        """Caixinha de pergunta do Instagram, só texto em preto e branco: faixa com o convite e a
+        pergunta digitada."""
+        larg, raio, tam_c, tam = self.W * 0.8, 44, 50, 76
+        faixa, pad = 120, 52
+        linhas = quebrar(el.texto, tam, larg - 2 * pad, self.fonte, 700)
+        corpo = len(linhas) * tam * 1.12 + 2 * pad
+        alt = faixa + corpo
+        topo = -alt / 2
+        convite = el.detalhe or "Faça uma pergunta"
+        total = sum(len(l) for l in linhas)
+        branco, preto = _cor("#FFFFFF"), _cor("#000000")
+
+        def digitada(n):
+            """Letras ainda não digitadas ficam transparentes, para o centro não se mexer."""
+            texto = "\\N".join(linhas)
+            i, contadas = 0, 0
+            while i < len(texto) and contadas < n:
+                i += 2 if texto.startswith("\\N", i) else 1
+                contadas += 0 if texto[i - 2:i] == "\\N" else 1
+            return texto if i >= len(texto) else texto[:i] + "{\\1a&HFF&}" + texto[i:]
+
+        def estado(rel, dur):
+            dx, dy, escala, opac = self._grupo(rel, dur)
+            letras = round(total * _limitar((rel - 0.55) / max(0.6, total * 0.035)))
+            camadas = [
+                Camada(0, 6, preto, 0.18, desenho=_retangulo(larg, alt, raio), camada=0),
+                Camada(0, 0, branco, desenho=_retangulo(larg, alt, raio), camada=1),
+                Camada(0, topo + faixa / 2, preto, desenho=_retangulo_topo(larg, faixa, raio), camada=2),
+                Camada(0, topo + faixa / 2, branco, texto=convite, tamanho=tam_c, peso=600, camada=3),
+                Camada(0, topo + faixa + corpo / 2, preto, texto=digitada(letras), tamanho=tam, peso=700,
+                       camada=3),
+            ]
             return camadas, dx, dy, escala, opac
         return estado
 
@@ -386,16 +431,21 @@ def gerar(elementos: list[Elemento], cfg: dict, marca: dict, largura: int, altur
 
 
 def programar(titulo: str, pedidos: list[tuple[str, str, str, float, float]], cfg: dict,
-              duracao_video: float) -> list[Elemento]:
+              duracao_video: float, pergunta: str = "") -> list[Elemento]:
     """Monta a lista final: título no início e os elementos sem se sobrepor.
 
     pedidos: (tipo, texto, detalhe, início da frase, fim da frase), já na linha do tempo editada.
     Cada elemento dura entre `duracao_minima` e `duracao_maxima`; os que cairiam sobre o título
-    ou sobre o anterior são deslocados ou descartados.
+    ou sobre o anterior são deslocados ou descartados. `pergunta` abre o vídeo com a caixinha de
+    pergunta do Instagram no lugar do título.
     """
     resultado = []
     livre = 0.0
-    if titulo and cfg.get("titulo", True):
+    if pergunta:
+        fim = min(cfg.get("duracao_pergunta", 4.5), duracao_video)
+        resultado.append(Elemento("pergunta", pergunta, "", 0.0, fim))
+        livre = fim + 0.4
+    elif titulo and cfg.get("titulo", True):
         fim = min(cfg["duracao_titulo"], duracao_video)
         resultado.append(Elemento("titulo", titulo, "", 0.0, fim))
         livre = fim + 0.4

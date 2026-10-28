@@ -251,3 +251,17 @@ def test_render_dos_graficos(tmp_path):
     check = _rgb(saida, 90, 1080, 1920)
     assert check[230:340, 150:930].mean() > 15         # cartão do check
     assert check[1700:, :].mean() < 1                  # embaixo, nada além da legenda
+
+
+def test_pergunta_no_lugar_do_titulo_e_digitada():
+    cfg = config.carregar()
+    g = cfg["graficos"]
+    els = graficos.programar("Título ignorado", [("frase", "Sem cicatriz", "", 1.0, 3.0)], g, 20.0,
+                             pergunta="Cisto no pescoço é perigoso?")
+    assert [e.tipo for e in els] == ["pergunta", "frase"]
+    assert els[0].fim == g["duracao_pergunta"] and els[1].inicio >= els[0].fim
+    linhas = graficos.gerar(els[:1], g, cfg["marca"], 1080, 1920, Fraction(30))
+    textos = [l.rsplit("}", 1)[-1] for l in linhas if "\\fs76" in l]
+    assert "\\1a&HFF&" in [l for l in linhas if "\\fs76" in l][20]     # no começo, ainda digitando
+    assert textos[-1].replace("\\N", " ") == "Cisto no pescoço é perigoso?"   # no fim, inteira
+    assert any("Faça uma pergunta" in l for l in linhas)

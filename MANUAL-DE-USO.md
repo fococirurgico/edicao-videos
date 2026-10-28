@@ -73,12 +73,13 @@ cd ~/edicao-videos
 5. Mande o vídeo editado para o iPhone por AirDrop e poste.
 
 O vídeo sai com legenda de uma palavra por vez, um título no início (sugerido pelo Claude) e
-alguns cartões animados. Para escolher o título ou tirar os gráficos, use o Terminal:
+alguns cartões animados. Para escolher o título, abrir com a caixinha de pergunta do Instagram ou tirar os gráficos, use o Terminal:
 
 ```bash
 cd ~/edicao-videos
 .venv/bin/edicao processar ~/Desktop/video.mov --titulo "Nódulo sem cirurgia?"
 .venv/bin/edicao processar ~/Desktop/video.mov --sem-titulo --sem-graficos
+.venv/bin/edicao processar ~/Desktop/video.mov --pergunta "Cisto no pescoço é perigoso?"
 ```
 
 Para errar menos na edição: ao errar uma frase, faça uma pausa e repita a frase inteira. O Claude

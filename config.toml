@@ -105,6 +105,9 @@ tamanho_titulo = 100
 # Altura do centro do título e dos cartões, em pixels a partir do topo (vídeo 1080x1920).
 altura_titulo = 290
 altura_elementos = 285
+# Caixinha de pergunta do Instagram no início (`--pergunta "..."`), no lugar do título.
+duracao_pergunta = 4.5
+altura_pergunta = 520
 # Cartões durante a fala (número, frase-chave, check, alerta), escolhidos pelo Claude.
 elementos = true
 duracao_minima = 2.2

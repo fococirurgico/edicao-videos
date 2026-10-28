@@ -15,8 +15,9 @@ from . import config, decisao, graficos, legendas, marca, midia, plano, render, 
 
 
 def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None,
-              titulo: str | None = None) -> None:
-    """titulo: sobrepõe o título sugerido pelo Claude ("" = sem título)."""
+              titulo: str | None = None, pergunta: str = "") -> None:
+    """titulo: sobrepõe o título sugerido pelo Claude ("" = sem título).
+    pergunta: abre com a caixinha de pergunta do Instagram no lugar do título."""
     c = cfg["cortes"]
     total = midia.duracao(video)
 
@@ -98,7 +99,7 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
                             min(tempos), max(tempos)))
     g = cfg["graficos"]
     titulo = graficos.limpar(d.titulo if titulo is None else titulo)
-    programados = graficos.programar(titulo, pedidos, g, duracao_final)
+    programados = graficos.programar(titulo, pedidos, g, duracao_final, graficos.limpar(pergunta))
     if programados:
         print("    " + ", ".join(f"{el.tipo} {el.inicio:.1f}s" for el in programados))
     v = cfg["video"]
@@ -167,6 +168,7 @@ def main() -> None:
     p.add_argument("--sem-claude", action="store_true", help="pula a decisão do Claude (só corta silêncios)")
     p.add_argument("--titulo", help="título do Reels no início (no lugar do sugerido pelo Claude)")
     p.add_argument("--sem-titulo", action="store_true", help="sem título no início")
+    p.add_argument("--pergunta", default="", help="abre com a caixinha de pergunta do Instagram (no lugar do título)")
     p.add_argument("--sem-graficos", action="store_true", help="sem elementos gráficos durante a fala")
 
     m = sub.add_parser("medir", help="mede a velocidade da transcrição neste Mac")
@@ -196,7 +198,7 @@ def main() -> None:
         if args.sem_graficos:
             cfg["graficos"]["elementos"] = False
         saida = args.saida or args.video.with_name(args.video.stem + "_editado.mp4")
-        processar(args.video, saida, cfg, args.transcricao_json, "" if args.sem_titulo else args.titulo)
+        processar(args.video, saida, cfg, args.transcricao_json, "" if args.sem_titulo else args.titulo, args.pergunta)
     else:
         medir(args.video, cfg)
 
