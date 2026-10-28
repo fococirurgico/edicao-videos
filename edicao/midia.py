@@ -50,6 +50,16 @@ def tem_filtro(nome: str) -> bool:
     return any(linha.split()[1:2] == [nome] for linha in saida.splitlines())
 
 
+def volume_integrado(video: Path) -> float | None:
+    """Volume percebido do áudio inteiro, em LUFS (EBU R128); None se não houver áudio."""
+    stderr = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-nostats", "-i", str(video), "-vn", "-af", "ebur128", "-f", "null", "-"],
+        capture_output=True, text=True,
+    ).stderr
+    achados = re.findall(r"I:\s+(-?[\d.]+) LUFS", stderr)
+    return float(achados[-1]) if achados else None
+
+
 def detectar_silencios(video: Path, limiar_db: float, minimo: float) -> list[tuple[float, float]]:
     """Intervalos (início, fim) em que o áudio fica abaixo do limiar por pelo menos `minimo` s."""
     stderr = subprocess.run(

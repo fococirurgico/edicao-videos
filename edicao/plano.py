@@ -51,19 +51,55 @@ def trechos_mantidos(
     return [t for t in unidos if t.duracao > 0.05]
 
 
-def aplicar_decisao(trechos: list[Trecho], frases, decisao, folga: float) -> list[Trecho]:
-    """Corta as frases que o Claude mandou remover e aplica o zoom das frases escolhidas.
+# Palavra mais longa que isso esconde fala não transcrita antes dela; dela só vale o fim.
+PALAVRA_MAXIMA = 1.0
+FIM_DA_PALAVRA = 0.45
 
-    Só sai o que foi explicitamente removido: áudio que a transcrição não captou continua no vídeo.
+
+def _inicio_real(p) -> float:
+    return max(p.inicio, p.fim - FIM_DA_PALAVRA) if p.fim - p.inicio > PALAVRA_MAXIMA else p.inicio
+
+
+def aplicar_decisao(trechos: list[Trecho], frases, decisao, folga: float,
+                    pausa_minima: float = 0.5) -> list[Trecho]:
+    """Mantém só a fala das palavras que ficam e aplica o zoom das frases escolhidas.
+
+    O que fica é o áudio coberto pelas palavras das frases mantidas (menos os cortes parciais). Fala que a transcrição não captou sai: costuma ser a tentativa
+    errada que o Whisper pulou. Uma palavra longa demais (mais de PALAVRA_MAXIMA s) esconde
+    fala não transcrita antes dela; dela só fica o fim.
     """
-    # 1. Intervalos a remover: cada frase descartada, estendida até perto das vizinhas.
-    remover = []
-    for i, f in enumerate(frases):
-        if f.id in decisao.manter:
-            continue
-        ini = min(frases[i - 1].fim + folga, f.inicio) if i > 0 else f.inicio
-        fim = max(frases[i + 1].inicio - folga, f.fim) if i + 1 < len(frases) else f.fim
-        remover.append((ini, fim))
+    from .decisao import palavras_cortadas
+
+    saem = palavras_cortadas(frases, getattr(decisao, "cortes_parciais", []))
+    ficam, fora = [], []
+    for f in frases:
+        for k, p in enumerate(f.palavras):
+            ini = _inicio_real(p)
+            if f.id in decisao.manter and (f.id, k) not in saem:
+                ficam.append((ini, p.fim))
+            else:
+                fora.append((p.inicio, p.fim))
+            if ini > p.inicio:
+                fora.append((p.inicio, ini))
+
+    # 1. Intervalos de fala: palavras próximas unidas; a folga não invade palavra que sai.
+    fala: list[list[float]] = []
+    for ini, fim in sorted(ficam):
+        entre = fala and any(fala[-1][1] <= r_ini and r_fim <= ini for r_ini, r_fim in fora)
+        if fala and ini - fala[-1][1] < pausa_minima and not entre:
+            fala[-1][1] = max(fala[-1][1], fim)
+        else:
+            fala.append([ini, fim])
+    intervalos = []
+    for ini, fim in fala:
+        a = ini - folga
+        b = fim + folga
+        for r_ini, r_fim in fora:
+            if r_fim <= ini and r_fim > a:
+                a = r_fim
+            if r_ini >= fim and r_ini < b:
+                b = r_ini
+        intervalos.append((a, b))
 
     # 2. Pontos de troca de zoom: fronteiras (meio da pausa) ao redor das frases com zoom.
     cortes = set()
@@ -74,22 +110,24 @@ def aplicar_decisao(trechos: list[Trecho], frases, decisao, folga: float) -> lis
             if i + 1 < len(frases):
                 cortes.add((f.fim + frases[i + 1].inicio) / 2)
 
+    # Os trechos com som só dão o fim do vídeo: recortar a fala por eles cortava o começo das
+    # palavras ditas baixo (abaixo do limiar de silêncio).
+    inicio_total = 0.0
+    fim_total = max((t.fim for t in trechos), default=0.0)
     resultado: list[Trecho] = []
-    for t in trechos:
-        pedacos = [(t.inicio, t.fim)]
-        for r_ini, r_fim in remover:
-            pedacos = [p for a, b in pedacos
-                       for p in ((a, min(b, r_ini)), (max(a, r_fim), b)) if p[1] - p[0] > 0.05]
-        for a, b in pedacos:
-            pontos = [a, *sorted(c for c in cortes if a < c < b), b]
-            for x, y in zip(pontos, pontos[1:]):
-                if y - x > 0.05:
-                    fid = _frase_em((x + y) / 2, frases)
-                    resultado.append(Trecho(
-                        x, y, decisao.zoom.get(fid, 1.0),
-                        tipo=decisao.tipo_zoom.get(fid, "seco") if fid in decisao.zoom else "seco",
-                        frase=fid,
-                    ))
+    for a, b in intervalos:
+        a, b = max(inicio_total, a), min(fim_total, b)
+        if b - a <= 0.05:
+            continue
+        pontos = [a, *sorted(c for c in cortes if a < c < b), b]
+        for x, y in zip(pontos, pontos[1:]):
+            if y - x > 0.05:
+                fid = _frase_em((x + y) / 2, frases)
+                resultado.append(Trecho(
+                    x, y, decisao.zoom.get(fid, 1.0),
+                    tipo=decisao.tipo_zoom.get(fid, "seco") if fid in decisao.zoom else "seco",
+                    frase=fid,
+                ))
     return resultado
 
 
@@ -201,13 +239,33 @@ def remapear(palavras: list[Palavra], trechos: list[Trecho]) -> list[Palavra]:
     """
     resultado = []
     for p in palavras:
-        meio = (p.inicio + p.fim) / 2
+        p_ini = _inicio_real(p)
+        meio = (p_ini + p.fim) / 2
         deslocamento = 0.0
         for t in trechos:
             if t.inicio <= meio <= t.fim:
-                ini = max(p.inicio, t.inicio) - t.inicio + deslocamento
+                ini = max(p_ini, t.inicio) - t.inicio + deslocamento
                 fim = min(p.fim, t.fim) - t.inicio + deslocamento
                 resultado.append(Palavra(p.texto, ini, fim))
                 break
             deslocamento += t.duracao
     return resultado
+
+
+def alinhar_quadros(trechos: list[Trecho], fps) -> list[Trecho]:
+    """Leva início e fim de cada trecho para a grade de quadros do vídeo.
+
+    Cada trecho vira um número inteiro de quadros, então a duração do vídeo, a do áudio e a
+    usada na legenda são a mesma. Sem isso, cada emenda ganhava até um quadro e a legenda se
+    adiantava em relação à fala ao longo do vídeo (0,4 s no fim de um vídeo de 80 s).
+    """
+    resultado = []
+    for t in trechos:
+        ini = round(t.inicio * fps) / fps
+        fim = round(t.fim * fps) / fps
+        if fim - ini < 1 / fps:
+            continue
+        t.inicio, t.fim = float(ini), float(fim)
+        resultado.append(t)
+    return resultado
+

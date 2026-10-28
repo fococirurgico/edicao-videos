@@ -15,9 +15,10 @@ from . import config, decisao, graficos, legendas, marca, midia, plano, render, 
 
 
 def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None,
-              titulo: str | None = None, pergunta: str = "") -> None:
+              titulo: str | None = None, pergunta: str = "", decisao_json: Path | None = None) -> None:
     """titulo: sobrepõe o título sugerido pelo Claude ("" = sem título).
-    pergunta: abre com a caixinha de pergunta do Instagram no lugar do título."""
+    pergunta: abre com a caixinha de pergunta do Instagram no lugar do título.
+    decisao_json: reaproveita a decisão salva de uma edição anterior (mesma transcrição)."""
     c = cfg["cortes"]
     total = midia.duracao(video)
 
@@ -37,12 +38,16 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     print(f"    {len(palavras)} palavras")
 
     frases = decisao.dividir_em_frases(palavras)
-    print(f"3/5 decidindo a edição ({cfg['decisao']['backend']}, {len(frases)} frases)…")
-    cfg["decisao"]["pausa_corte"] = c["silencio_minimo"]
-    d = decisao.decidir(frases, cfg["decisao"], cfg["marca"])
+    if decisao_json:
+        print("3/5 usando decisão salva…")
+        d = decisao.carregar(decisao_json)
+    else:
+        print(f"3/5 decidindo a edição ({cfg['decisao']['backend']}, {len(frases)} frases)…")
+        cfg["decisao"]["pausa_corte"] = c["silencio_minimo"]
+        d = decisao.decidir(frases, cfg["decisao"], cfg["marca"])
     decisao.salvar(d, frases, saida.with_suffix(".decisao.json"))
-    if frases:
-        trechos = plano.aplicar_decisao(trechos, frases, d, c["folga"])
+    if frases and cfg["decisao"]["backend"] != "nenhum":     # --sem-claude: só corta silêncios
+        trechos = plano.aplicar_decisao(trechos, frases, d, c["folga"], c["silencio_minimo"])
     cortadas = len(frases) - len(d.manter)
     print(f"    {cortadas} frases cortadas, {len(d.destaques)} destaques, {len(d.zoom)} zooms, "
           f"{len(d.elementos)} elementos, {len(d.correcoes)} correções")
@@ -57,6 +62,8 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     plano.saltar_nos_cortes(trechos, e["salto_nos_cortes"], zoom_maximo)
     trechos = plano.aplicar_ritmo(trechos, palavras, e["plano_maximo"], e["variacao_ritmo"], zoom_maximo)
     plano.planejar_movimento(trechos, e["duracao_zoom_rapido"], 0, zoom_maximo)
+    fps = midia.fps(video)
+    trechos = plano.alinhar_quadros(trechos, fps)
     W, H = midia.dimensoes(video)
     olhos = []
     if e["rastrear_rosto"]:
@@ -87,7 +94,6 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
         print(f"    zoom reduzido em {reduzidos} trechos para manter os olhos no quadro")
 
     print("4/5 gerando legendas e elementos gráficos…")
-    fps = midia.fps(video)
     duracao_final = sum(t.duracao for t in trechos)
     por_id = {f.id: f for f in frases}
     pedidos = []
@@ -123,7 +129,14 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
         print(f"    {animados} trechos com zoom animado")
     arquivo_fonte = cfg["marca"].get("arquivo_fonte")
     pasta_fontes = Path(arquivo_fonte).parent if arquivo_fonte else None
-    render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H), hdr, pasta_fontes, fps)
+    ganho = 0.0
+    alvo = cfg.get("audio", {}).get("volume_alvo")
+    if alvo is not None:
+        atual = midia.volume_integrado(video)
+        if atual is not None and atual > -70:
+            ganho = max(-10.0, min(20.0, alvo - atual))
+            print(f"    volume {atual:.1f} LUFS → {alvo} LUFS ({ganho:+.1f} dB)")
+    render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H), hdr, pasta_fontes, fps, ganho)
     print(f"pronto: {saida}")
 
 
@@ -166,6 +179,7 @@ def main() -> None:
     p.add_argument("--modelo", help="sobrepõe o modelo de transcrição da configuração")
     p.add_argument("--transcricao-json", type=Path, help="usa uma transcrição já salva")
     p.add_argument("--sem-claude", action="store_true", help="pula a decisão do Claude (só corta silêncios)")
+    p.add_argument("--decisao-json", type=Path, help="reaproveita a decisão salva de uma edição anterior")
     p.add_argument("--titulo", help="título do Reels no início (no lugar do sugerido pelo Claude)")
     p.add_argument("--sem-titulo", action="store_true", help="sem título no início")
     p.add_argument("--pergunta", default="", help="abre com a caixinha de pergunta do Instagram (no lugar do título)")
@@ -198,7 +212,7 @@ def main() -> None:
         if args.sem_graficos:
             cfg["graficos"]["elementos"] = False
         saida = args.saida or args.video.with_name(args.video.stem + "_editado.mp4")
-        processar(args.video, saida, cfg, args.transcricao_json, "" if args.sem_titulo else args.titulo, args.pergunta)
+        processar(args.video, saida, cfg, args.transcricao_json, "" if args.sem_titulo else args.titulo, args.pergunta, args.decisao_json)
     else:
         medir(args.video, cfg)
 

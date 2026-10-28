@@ -52,6 +52,7 @@ def _transcrever_mlx(video: Path, modelo: str, idioma: str) -> list[Palavra]:
         path_or_hf_repo=f"mlx-community/whisper-{modelo}-mlx",
         language=idioma,
         word_timestamps=True,
+        condition_on_previous_text=False,
     )
     return [
         Palavra(p["word"].strip(), float(p["start"]), float(p["end"]))
@@ -65,7 +66,10 @@ def _transcrever_faster_whisper(video: Path, modelo: str, idioma: str) -> list[P
     from faster_whisper import WhisperModel
 
     m = WhisperModel(modelo, device="cpu", compute_type="int8")
-    segmentos, _ = m.transcribe(str(video), language=idioma, word_timestamps=True)
+    # Sem o texto anterior como contexto: com ele, o Whisper tende a pular a fala repetida
+    # (a tentativa errada e a refeita viram uma só), e o erro fica no vídeo sem ser visto.
+    segmentos, _ = m.transcribe(str(video), language=idioma, word_timestamps=True,
+                                condition_on_previous_text=False)
     return [
         Palavra(p.word.strip(), float(p.start), float(p.end))
         for seg in segmentos

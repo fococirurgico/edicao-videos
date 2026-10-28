@@ -58,7 +58,9 @@ Roda no computador do usuário (decidido em 2026-10-11), sem servidor na nuvem. 
 
 Guia passo a passo para quem vai usar: [MANUAL-DE-USO.md](MANUAL-DE-USO.md).
 
-O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", escolhe palavras de destaque, frases com zoom, o título, os elementos gráficos e as correções da transcrição), legendas de uma palavra por vez e elementos gráficos animados, exportando em 1080x1920.
+O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", também dentro de uma frase quando a tentativa errada e a refeita ficam juntas, escolhe palavras de destaque, frases com zoom, o título, os elementos gráficos e as correções da transcrição), legendas de uma palavra por vez e elementos gráficos animados, exportando em 1080x1920.
+
+**O que fica no vídeo:** só a fala das palavras que o Claude manteve. Fala que a transcrição não captou sai: costuma ser a tentativa errada, que o Whisper tende a pular (por isso ele roda sem o texto anterior como contexto). Uma palavra "esticada" pela transcrição (mais de 1 s) esconde fala não transcrita; dela só fica o fim. Os trechos são alinhados aos quadros do vídeo, para a legenda não se adiantar da fala ao longo das emendas. O volume final vai para -14 LUFS (padrão dos Reels), com um ganho fixo e limitador de picos. Para refazer só o visual sem pedir de novo ao Claude: `--transcricao-json` e `--decisao-json` com os arquivos salvos ao lado do vídeo.
 
 **Legenda:** só a palavra dita aparece, em `cor_texto`, entrando com um "pop" (cresce um pouco além do tamanho e assenta); as palavras de destaque ficam 25% maiores. Ela fica na tela até a próxima palavra começar (em pausas longas, some logo). `[legendas] palavras_por_linha` maior que 1 volta ao modo de blocos com a palavra atual colorida.
 

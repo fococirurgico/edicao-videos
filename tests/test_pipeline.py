@@ -105,16 +105,45 @@ def test_validar_descarta_ids_e_palavras_inexistentes():
     assert decisao.validar({"manter": []}, frases).manter == [1, 2]
 
 
-def test_aplicar_decisao_corta_retake_e_mantem_audio_nao_transcrito():
-    # Frase 1 é um retake (cortada), frase 2 é a versão boa; 4.0–5.0 tem áudio sem transcrição.
+def test_aplicar_decisao_corta_retake_e_audio_nao_transcrito():
+    # Frase 1 é um retake (cortada), frase 2 é a versão boa; 4.0–5.0 tem áudio sem transcrição
+    # (costuma ser a tentativa errada que o Whisper pulou): sai também.
     frases = decisao.dividir_em_frases(_palavras(
         ("versão", 0.0, 0.5), ("ruim.", 0.5, 1.0), ("versão", 1.4, 1.9), ("boa.", 1.9, 2.4),
     ))
     d = decisao.Decisao(manter=[2], destaques=[], zoom={2: 1.1})
     trechos = plano.aplicar_decisao([plano.Trecho(0.0, 5.0)], frases, d, folga=0.08)
     assert trechos[0].inicio == pytest.approx(1.32)    # retake removido, folga antes da frase boa
-    assert trechos[-1].fim == 5.0                      # áudio não transcrito preservado
+    assert trechos[-1].fim == pytest.approx(2.48)      # áudio não transcrito removido
     assert all(t.zoom == 1.1 for t in trechos)
+
+
+def test_corte_parcial_tira_a_repeticao_dentro_da_frase():
+    frases = decisao.dividir_em_frases(_palavras(
+        ("já", 0.0, 0.2), ("tive", 0.2, 0.4), ("pacientes,", 0.4, 0.9),
+        ("não", 1.1, 1.3), ("não,", 1.3, 1.5),
+        ("já", 1.7, 1.9), ("tive", 1.9, 2.1), ("pacientes", 2.1, 2.6), ("assim.", 2.6, 3.0),
+    ))
+    assert len(frases) == 1
+    bruto = {"manter": [1], "cortes_parciais": [{"frase": 1, "trecho": "já tive pacientes, não não"},
+                                                {"frase": 1, "trecho": "inexistente"}]}
+    d = decisao.validar(bruto, frases)
+    assert d.cortes_parciais == [{"frase": 1, "trecho": "já tive pacientes, não não"}]
+    trechos = plano.aplicar_decisao([plano.Trecho(0.0, 3.5)], frases, d, folga=0.08)
+    assert len(trechos) == 1
+    assert trechos[0].inicio == pytest.approx(1.62) and trechos[0].fim == pytest.approx(3.08)
+    # Uma frase nunca sai inteira por corte parcial.
+    assert decisao.validar({"manter": [1], "cortes_parciais": [
+        {"frase": 1, "trecho": frases[0].texto}]}, frases).cortes_parciais == []
+
+
+def test_palavra_esticada_mantem_so_o_fim():
+    # O Whisper às vezes estica uma palavra sobre fala que não transcreveu ("não, não, não…").
+    frases = decisao.dividir_em_frases(_palavras(("certamente", 0.0, 0.8), ("vão", 0.9, 4.0),
+                                                 ("surgir.", 4.0, 4.5)))
+    d = decisao.Decisao(manter=[1], destaques=[], zoom={})
+    trechos = plano.aplicar_decisao([plano.Trecho(0.0, 5.0)], frases, d, folga=0.08)
+    assert [(round(t.inicio, 2), round(t.fim, 2)) for t in trechos] == [(0.0, 0.88), (3.55, 4.58)]
 
 
 def test_decisao_sem_backend_mantem_tudo():
@@ -383,3 +412,13 @@ def test_previa_da_legenda(tmp_path):
     imagem = m.previa(config.carregar(), tmp_path / "previa.png")
     assert imagem.exists() and imagem.stat().st_size > 10_000
     assert not imagem.with_suffix(".ass").exists()
+
+
+def test_correcao_vale_para_todas_as_ocorrencias_e_palavra_esticada_na_legenda():
+    frases = decisao.dividir_em_frases(_palavras(("um", 0, 0.3), ("sisto", 0.3, 0.8), ("é", 0.8, 1.0),
+                                                 ("sisto.", 1.0, 1.5)))
+    palavras = decisao.aplicar_correcoes(frases, [{"frase": 1, "errado": "sisto", "certo": "cisto"}])
+    assert [p.texto for p in palavras] == ["um", "cisto", "é", "cisto."]
+    # A palavra esticada aparece na legenda só no fim dela, onde é dita.
+    esticada = [Palavra("vão", 1.0, 4.0)]
+    assert plano.remapear(esticada, [plano.Trecho(3.5, 4.2)])[0].inicio == pytest.approx(0.05)

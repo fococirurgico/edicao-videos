@@ -113,7 +113,7 @@ def test_janela_interpola_em_escala_geometrica():
 def test_rapido_anima_so_o_inicio():
     t = plano.Trecho(0, 3, 1.3, quadro=(1, 1, 2, 2), tipo="rapido", quadro_inicial=(0, 0, 4, 4),
                      anim_duracao=0.45)
-    assert render._pedacos(t) == [(0, 0.45, True), (0.45, 3, False)]
+    assert render._pedacos(t) == [(0, 14 / 30, True), (14 / 30, 3, False)]   # 0,45 s → 14 quadros
 
 
 # HDR mantido
@@ -159,9 +159,12 @@ def test_hdr_mantido_com_legenda_na_cor_da_marca(tmp_path):
         cc = c.streams.video[0].codec_context
         assert cc.name == "hevc" and cc.pix_fmt == "yuv420p10le"
     # De volta em SDR, o quadrado tem o dourado #C1A752 e o fundo continua cinza.
+    # O fundo sai igual ao original: a transparência da camada não pode virar um véu escuro
+    # (o zscale com r=tv comprimia o alfa: 6% de preto no vídeo todo e gráficos 92% opacos).
     q = _rgb(saida, 10, 180, 320, sdr_de="arib-std-b67")
-    assert np.abs(q[160, 90] - [0xC1, 0xA7, 0x52]).max() < 14
-    assert np.abs(q[20, 20] - [0x80, 0x80, 0x80]).max() < 14
+    original = _rgb(hlg, 10, 360, 640, sdr_de="arib-std-b67")
+    assert np.abs(q[160, 90] - [0xC1, 0xA7, 0x52]).max() < 8
+    assert np.abs(q[20, 20] - original[40, 40]).max() < 3
 
 
 # Decisão: título, elementos e correções
@@ -193,7 +196,7 @@ def test_validar_titulo_elementos_e_correcoes():
 
 def test_prompt_pede_titulo_elementos_e_correcoes():
     texto = decisao.montar_prompt(decisao.dividir_em_frases([Palavra("oi.", 0, 1)]))
-    assert "titulo" in texto and "elementos" in texto and "correcoes" in texto
+    assert all(k in texto for k in ("titulo", "elementos", "correcoes", "cortes_parciais"))
 
 
 # Elementos gráficos
@@ -265,3 +268,16 @@ def test_pergunta_no_lugar_do_titulo_e_digitada():
     assert "\\1a&HFF&" in [l for l in linhas if "\\fs76" in l][20]     # no começo, ainda digitando
     assert textos[-1].replace("\\N", " ") == "Cisto no pescoço é perigoso?"   # no fim, inteira
     assert any("Faça uma pergunta" in l for l in linhas)
+
+
+def test_ganho_de_audio_leva_ao_volume_alvo(tmp_path):
+    baixo = tmp_path / "baixo.mp4"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=gray:s=360x640:d=4:r=30",
+                    "-f", "lavfi", "-i", "sine=f=300:d=4,volume=-30dB", "-shortest", "-c:v", "libx264",
+                    "-c:a", "aac", str(baixo)], check=True)
+    antes = midia.volume_integrado(baixo)
+    saida = tmp_path / "alto.mp4"
+    render.renderizar(baixo, [plano.Trecho(0, 4, 1.0, quadro=(0, 0, 360, 640))], None, saida,
+                      {**config.carregar()["video"], "largura": 360, "altura": 640}, 0.02, (360, 640),
+                      ganho_db=-14 - antes)
+    assert abs(midia.volume_integrado(saida) - (-14)) < 1.0

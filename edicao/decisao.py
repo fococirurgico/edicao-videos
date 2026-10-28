@@ -43,6 +43,8 @@ class Decisao:
     elementos: list[dict] = field(default_factory=list)
     # Palavras mal transcritas: {"frase", "errado", "certo"}.
     correcoes: list[dict] = field(default_factory=list)
+    # Partes de frases mantidas que saem (falso começo, trecho repetido): {"frase", "trecho"}.
+    cortes_parciais: list[dict] = field(default_factory=list)
 
 
 TIPOS_ZOOM = ("seco", "suave", "rapido")
@@ -99,8 +101,21 @@ ESQUEMA = {
             },
             "description": "Trechos mal transcritos e a forma correta.",
         },
+        "cortes_parciais": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "frase": {"type": "integer"},
+                    "trecho": {"type": "string"},
+                },
+                "required": ["frase", "trecho"],
+                "additionalProperties": False,
+            },
+            "description": "Pedaços de frases mantidas que devem sair (falso começo, repetição).",
+        },
     },
-    "required": ["manter", "destaques", "zoom", "titulo", "elementos", "correcoes"],
+    "required": ["manter", "destaques", "zoom", "titulo", "elementos", "correcoes", "cortes_parciais"],
     "additionalProperties": False,
 }
 
@@ -113,6 +128,10 @@ Decida a edição:
    - Quando o autor regrava um trecho (repete a mesma ideia), mantenha só a ÚLTIMA versão completa.
    - Remova frases abandonadas no meio, falsos começos e marcas faladas de corte
      ("corta", "de novo", "vou repetir", "ops").
+   - A transcrição às vezes junta a tentativa errada e a refeita na mesma frase, ou deixa
+     palavras soltas de uma tentativa abandonada ("não, não", "ou melhor"). Leia com atenção:
+     se uma frase repete um pedaço ("já tive alguns pacientes assim, já tive alguns pacientes
+     assim e certamente..."), mantenha a frase e use cortes_parciais para tirar a parte repetida.
    - Não remova conteúdo só para encurtar: na dúvida, mantenha.
 2. destaques: palavras-chave que merecem cor na legenda (números, termos técnicos, a ideia central).
    No máximo uma a cada 5 segundos. Escreva exatamente como aparecem na transcrição.
@@ -146,6 +165,10 @@ Decida a edição:
    (ex.: termos médicos: errado "ar de frequência", certo "radiofrequência"; errado "nódo",
    certo "nódulo"). "errado" deve aparecer exatamente na frase indicada. Só corrija o que tem
    certeza; não reescreva o estilo da fala.
+7. cortes_parciais: dentro de uma frase mantida, o pedaço que sai, copiado exatamente da frase
+   (palavras seguidas). Use para a primeira tentativa de um trecho repetido (fica a última),
+   para um falso começo no início da frase e para marcas de erro ("não, não", "peraí", "ops").
+   Lista vazia se não houver.
 
 Transcrição:
 """
@@ -220,7 +243,14 @@ def validar(bruto: dict, frases: list[Frase], zoom_maximo: float = 1.4) -> Decis
         if c.get("frase") in textos and str(c.get("certo", "")).strip()
         and _tokens(c.get("errado", "")) and _achar(textos[c["frase"]], _tokens(c["errado"])) is not None
     ]
-    return Decisao(manter, destaques, zoom, tipo_zoom, titulo, elementos, correcoes)
+    cortes_parciais = [
+        {"frase": c["frase"], "trecho": " ".join(str(c["trecho"]).split())}
+        for c in bruto.get("cortes_parciais", [])
+        if c.get("frase") in manter and _tokens(c.get("trecho", ""))
+        and _achar(textos[c["frase"]], _tokens(c["trecho"])) is not None
+        and len(_tokens(c["trecho"])) < len(textos[c["frase"]])     # a frase não sai inteira
+    ]
+    return Decisao(manter, destaques, zoom, tipo_zoom, titulo, elementos, correcoes, cortes_parciais)
 
 
 def _tokens(texto: str) -> list[str]:
@@ -238,6 +268,21 @@ def _achar(palavras: list[str], alvo: list[str]) -> int | None:
     return None
 
 
+def palavras_cortadas(frases: list[Frase], cortes_parciais: list[dict]) -> set[tuple[int, int]]:
+    """(id da frase, posição da palavra) das palavras que saem pelos cortes parciais."""
+    por_id = {f.id: f for f in frases}
+    saem = set()
+    for c in cortes_parciais:
+        f = por_id.get(c["frase"])
+        if not f:
+            continue
+        alvo = _tokens(c["trecho"])
+        i = _achar(norm_frase(f), alvo)
+        if i is not None:
+            saem |= {(f.id, k) for k in range(i, i + len(alvo))}
+    return saem
+
+
 def aplicar_correcoes(frases: list[Frase], correcoes: list[dict]) -> list[Palavra]:
     """Palavras de todas as frases com as correções aplicadas.
 
@@ -252,23 +297,29 @@ def aplicar_correcoes(frases: list[Frase], correcoes: list[dict]) -> list[Palavr
         palavras = list(f.palavras)
         for c in por_frase.get(f.id, []):
             alvo = _tokens(c["errado"])
-            i = _achar([re.sub(r"[^\w]", "", p.texto.lower()) for p in palavras], alvo)
-            if i is None:
-                continue
-            trecho = palavras[i:i + len(alvo)]
-            novas = c["certo"].split()
-            pontuacao = re.search(r"[^\w]*$", trecho[-1].texto).group()
-            if pontuacao and not novas[-1].endswith(pontuacao):
-                novas[-1] += pontuacao
-            ini, fim = trecho[0].inicio, trecho[-1].fim
-            pesos = [len(n) for n in novas]
-            total, acumulado = sum(pesos), 0
-            substitutas = []
-            for n, peso in zip(novas, pesos):
-                a = ini + (fim - ini) * acumulado / total
-                acumulado += peso
-                substitutas.append(Palavra(n, a, ini + (fim - ini) * acumulado / total))
-            palavras[i:i + len(alvo)] = substitutas
+            novas_n = len(c["certo"].split())
+            depois = 0
+            while True:                                  # todas as ocorrências na frase
+                normais = [re.sub(r"[^\w]", "", p.texto.lower()) for p in palavras]
+                achado = _achar(normais[depois:], alvo)
+                if achado is None:
+                    break
+                i = depois + achado
+                depois = i + novas_n
+                trecho = palavras[i:i + len(alvo)]
+                novas = c["certo"].split()
+                pontuacao = re.search(r"[^\w]*$", trecho[-1].texto).group()
+                if pontuacao and not novas[-1].endswith(pontuacao):
+                    novas[-1] += pontuacao
+                ini, fim = trecho[0].inicio, trecho[-1].fim
+                pesos = [len(n) for n in novas]
+                total, acumulado = sum(pesos), 0
+                substitutas = []
+                for n, peso in zip(novas, pesos):
+                    a = ini + (fim - ini) * acumulado / total
+                    acumulado += peso
+                    substitutas.append(Palavra(n, a, ini + (fim - ini) * acumulado / total))
+                palavras[i:i + len(alvo)] = substitutas
         resultado += palavras
     return resultado
 
@@ -353,3 +404,12 @@ def salvar(decisao: Decisao, frases: list[Frase], caminho) -> None:
         "frases": [{"id": f.id, "texto": f.texto, "inicio": f.inicio, "fim": f.fim} for f in frases],
         "decisao": asdict(decisao),
     }, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def carregar(caminho) -> Decisao:
+    """Decisão salva por `salvar` (para refazer o vídeo sem pedir de novo ao Claude)."""
+    d = json.loads(Path(caminho).read_text(encoding="utf-8"))["decisao"]
+    d["zoom"] = {int(k): v for k, v in d.get("zoom", {}).items()}
+    d["tipo_zoom"] = {int(k): v for k, v in d.get("tipo_zoom", {}).items()}
+    return Decisao(**d)
+

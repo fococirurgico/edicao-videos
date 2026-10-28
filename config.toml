@@ -54,6 +54,11 @@ folga = 0.08
 # Fade de áudio em cada emenda (segundos), evita estalos.
 fade_audio = 0.02
 
+[audio]
+# Volume final em LUFS (padrão dos Reels/Instagram: -14). Ganho fixo com limitador de picos, sem
+# compressão nem redução de ruído. Apague a linha para manter o volume original.
+volume_alvo = -14
+
 [marca]
 # Identidade de marca. Configure com `edicao marca` (perguntas ou leitura do manual de marca).
 nome = ""
@@ -130,5 +135,5 @@ taxa_videotoolbox = "20M"
 hdr = "manter"
 # HDR: "libx265" funciona em qualquer Mac; "hevc_videotoolbox" usa o hardware (Apple Silicon).
 codec_hdr = "libx265"
-crf_hdr = 18
+crf_hdr = 15
 preset_hdr = "medium"

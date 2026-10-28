@@ -126,14 +126,14 @@ def animar(video: Path, t: Trecho, inicio: float, fim: float, saida: Path,
         raise RuntimeError(f"falha ao animar o trecho {t.inicio:.2f}–{t.fim:.2f}s")
 
 
-def _pedacos(t: Trecho) -> list[tuple[float, float, bool]]:
+def _pedacos(t: Trecho, fps: Fraction = Fraction(30)) -> list[tuple[float, float, bool]]:
     """Divide o trecho em pedaços (início, fim, animado). No "rapido", a animação dura pouco e o
-    resto do trecho fica parado no enquadramento final."""
+    resto do trecho fica parado no enquadramento final; a divisão cai num quadro inteiro."""
     animado = bool(t.quadro and t.quadro_inicial and t.tipo in _SUAVIZACAO)
     if not animado:
         return [(t.inicio, t.fim, False)]
     if t.tipo == "rapido":
-        resta = t.anim_duracao - t.anim_decorrido
+        resta = float(round((t.anim_duracao - t.anim_decorrido) * fps) / fps)
         if resta <= 0:
             return [(t.inicio, t.fim, False)]
         if resta < t.duracao - 0.05:
@@ -177,9 +177,11 @@ def renderizar(
     video: Path, trechos: list[Trecho], legendas_ass: Path | None, saida: Path,
     cfg_video: dict, fade_audio: float, dimensoes: tuple[int, int] | None = None,
     hdr: str | None = None, pasta_fontes: Path | None = None, fps: Fraction = Fraction(30),
+    ganho_db: float = 0.0,
 ) -> None:
     """hdr: curva de transferência do original (ver midia.transferencia_hdr); None se SDR.
-    pasta_fontes: onde procurar as fontes da legenda além das instaladas no Mac."""
+    pasta_fontes: onde procurar as fontes da legenda além das instaladas no Mac.
+    ganho_db: ganho fixo do áudio (volume no padrão dos Reels), com limitador de picos."""
     larg, alt = cfg_video["largura"], cfg_video["altura"]
     manter_hdr = bool(hdr) and cfg_video.get("hdr", "manter") == "manter"
     hdr_saida = hdr if manter_hdr else None
@@ -196,7 +198,7 @@ def renderizar(
         entradas = ["-i", str(video)]
         filtros = []
         for i, t in enumerate(trechos):
-            pedacos = _pedacos(t) if dimensoes else [(t.inicio, t.fim, False)]
+            pedacos = _pedacos(t, fps) if dimensoes else [(t.inicio, t.fim, False)]
             rotulos = []
             for j, (ini, fim, animado) in enumerate(pedacos):
                 rotulo = f"v{i}_{j}"
@@ -207,14 +209,17 @@ def renderizar(
                     entradas += ["-i", str(arquivo)]
                     # Quadro a mais ou a menos na leitura não desloca o áudio: completa e corta.
                     origem = (f"[{n}:v]setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=0.1,"
-                              f"trim=duration={fim - ini:.3f}")
+                              f"trim=duration={fim - ini:.4f}")
                     if hdr:
                         origem += (f",setparams=color_primaries=bt2020:color_trc={hdr}:colorspace=bt2020nc:"
                                    "range=tv")
                     filtros.append(f"{origem}{cor},{params}[{rotulo}]")
                 else:
+                    # Grade de quadros fixa e duração exata: o pedaço tem tantos quadros quanto o
+                    # áudio correspondente, e as emendas não acumulam diferença.
                     filtros.append(
-                        f"[0:v]trim=start={ini:.3f}:end={fim:.3f},setpts=PTS-STARTPTS,"
+                        f"[0:v]trim=start={ini:.4f}:end={fim + 0.5 / fps:.4f},setpts=PTS-STARTPTS,"
+                        f"fps={fps}:round=near,tpad=stop_mode=clone:stop_duration=0.1,trim=duration={fim - ini:.4f},"
                         f"{_parado(t, larg, alt)}{cor},{params}[{rotulo}]"
                     )
                 rotulos.append(f"[{rotulo}]")
@@ -224,23 +229,35 @@ def renderizar(
                 filtros.append(f"{''.join(rotulos)}concat=n={len(rotulos)}:v=1:a=0[v{i}]")
             fade = min(fade_audio, t.duracao / 2)
             filtros.append(
-                f"[0:a]atrim=start={t.inicio:.3f}:end={t.fim:.3f},asetpts=PTS-STARTPTS,"
+                f"[0:a]atrim=start={t.inicio:.4f}:end={t.fim:.4f},asetpts=PTS-STARTPTS,"
                 f"afade=t=in:d={fade:.3f},afade=t=out:st={t.duracao - fade:.3f}:d={fade:.3f}[a{i}]"
             )
         juntos = "".join(f"[v{i}][a{i}]" for i in range(len(trechos)))
-        filtros.append(f"{juntos}concat=n={len(trechos)}:v=1:a=1[vc][ac]")
+        filtros.append(f"{juntos}concat=n={len(trechos)}:v=1:a=1[vc][acru]")
+        if abs(ganho_db) >= 0.5:
+            # Ganho fixo (não comprime a fala) e limitador só para os picos não estourarem.
+            filtros.append(f"[acru]volume={ganho_db:.1f}dB,alimiter=limit=0.84:level=false[ac]")
+        else:
+            filtros.append("[acru]anull[ac]")
 
         if legendas_ass:
             legenda = f"subtitles=filename='{_escapar_caminho_filtro(legendas_ass)}'"
             if pasta_fontes:
                 legenda += f":fontsdir='{_escapar_caminho_filtro(pasta_fontes)}'"
             if hdr_saida:
-                # Camada transparente em SDR, convertida para a curva HDR e sobreposta.
+                # Camada transparente em SDR, convertida para a curva HDR e sobreposta. A
+                # transparência vai à parte: o zscale com r=tv também comprime o alfa para a faixa
+                # limitada (opaco virava 92% e o transparente, um véu preto de 6% no vídeo todo).
                 filtros.append(
                     f"color=c=black@0:s={larg}x{alt}:r={fps},format=rgba,{legenda}:alpha=1,"
-                    "format=gbrapf32le,zscale=tin=iec61966-2-1:t=linear:npl=203,zscale=pin=bt709:p=bt2020,"
-                    f"zscale=t={hdr_saida}:npl=203:m=bt2020nc:r=tv,format=yuva420p10le[camada]"
+                    "split[camada_cor][camada_alfa]"
                 )
+                filtros.append("[camada_alfa]alphaextract,format=gray10le[alfa]")
+                filtros.append(
+                    "[camada_cor]format=gbrpf32le,zscale=tin=iec61966-2-1:t=linear:npl=203,zscale=pin=bt709:p=bt2020,"
+                    f"zscale=t={hdr_saida}:npl=203:m=bt2020nc:r=tv,format=yuv420p10le[camada_hdr]"
+                )
+                filtros.append("[camada_hdr][alfa]alphamerge[camada]")
                 filtros.append(f"[vc][camada]overlay=format=yuv420p10:shortest=1:eof_action=pass,{params}[vout]")
             else:
                 filtros.append(f"[vc]{legenda}[vout]")

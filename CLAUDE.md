@@ -78,6 +78,18 @@ Abertas em 28/10/2026 (já no Notion):
 
 ## Cuidados técnicos
 
+- Corte (desde 28/10/2026, IMG_4038 saiu com erros e repetições): o que fica é a fala das palavras
+  mantidas (`plano.aplicar_decisao`), não o complemento dos silêncios. O detector de silêncio só
+  dá o fim do vídeo; recortar a fala por ele cortava o começo de palavras ditas baixo (lapela a
+  -28 LUFS). Whisper com `condition_on_previous_text=False`: com contexto ele pulava a tentativa
+  repetida. Palavra > 1 s = fala não transcrita escondida; só o fim (0,45 s) vale, no corte e na
+  legenda. `cortes_parciais` do Claude tiram a tentativa errada de dentro de uma frase.
+- Sincronia: `plano.alinhar_quadros` leva os trechos à grade de quadros e cada pedaço de vídeo é
+  forçado à duração exata (`fps`, `tpad`, `trim=duration`). Antes, cada emenda ganhava até um
+  quadro, o concat completava o áudio, e a legenda (tempo planejado) se adiantava 0,4 s no fim.
+- HDR: a camada de gráficos tem o alfa separado (`alphaextract`/`alphamerge`); o `zscale` com
+  `r=tv` comprimia o alfa para a faixa limitada (véu preto de 6% no vídeo todo, gráficos 92%).
+
 - `pyproject.toml`: `av>=14,<16` — PyAV 16+ quebra o faster-whisper 1.2.1 (`metadata_errors`).
 - `render._zerar_rotacao`: o ffmpeg 7.1 copiava a rotação -90 do iPhone para a saída já girada
   (vídeo de lado); remux com `-display_rotation 0 -c copy` (e `-tag:v hvc1` no HEVC).
