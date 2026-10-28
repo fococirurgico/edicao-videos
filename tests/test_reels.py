@@ -296,3 +296,28 @@ def test_tratamento_de_voz_chega_ao_volume_alvo(tmp_path):
     import av
     with av.open(str(saida)) as c:
         assert c.streams.audio[0].codec_context.sample_rate == 48000
+
+
+def _nivel(video: Path) -> int:
+    """level_idc gravado no primeiro quadro (H.264: 42 = 4.2; HEVC: 30 × nível, 153 = 5.1)."""
+    log = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(video), "-c:v", "copy", "-bsf:v", "trace_headers",
+                          "-frames:v", "1", "-f", "null", "-"], capture_output=True, text=True).stderr
+    linha = next(l for l in log.splitlines() if "level_idc" in l)
+    return int(linha.split("=")[-1])
+
+
+@pytest.mark.parametrize("hdr", [None, "arib-std-b67"])
+def test_nivel_do_video_aceito_pelo_iphone(tmp_path, hdr):
+    # Sem nível fixo, o x264/x265 marcavam 6.2 e o iPhone recusava o arquivo ("formato incompatível").
+    if hdr and not midia.tem_filtro("zscale"):
+        pytest.skip("ffmpeg sem zscale")
+    video = tmp_path / "v.mp4"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=gray:s=360x640:d=1:r=30",
+                    "-f", "lavfi", "-i", "sine=d=1", "-shortest", "-c:v", "libx264", "-c:a", "aac", str(video)],
+                   check=True)
+    if hdr:
+        video = _hlg(tmp_path, video)
+    saida = tmp_path / "saida.mp4"
+    render.renderizar(video, [plano.Trecho(0, 1, 1.0, quadro=(0, 0, 360, 640))], None, saida,
+                      {**config.carregar()["video"], "largura": 360, "altura": 640}, 0.02, (360, 640), hdr)
+    assert _nivel(saida) == (153 if hdr else 42)

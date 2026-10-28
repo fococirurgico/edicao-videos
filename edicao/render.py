@@ -161,6 +161,13 @@ def tratamento_voz(volume_alvo: float = -14) -> str:
             f"loudnorm=I={volume_alvo}:TP=-1.5:LRA=9,aresample=48000")
 
 
+# Nível declarado no vídeo. Sem ele, com a base de tempo de 1 µs da saída (vídeo de taxa variável),
+# o x264 e o x265 deduziam a taxa de quadros errada e marcavam nível 6.2: o iPhone recusa o arquivo
+# ("formato de arquivo incompatível"), embora o Mac reproduza. 1080x1920 a 30 fps cabe no 4.x.
+_NIVEL_H264 = "4.2"
+_NIVEL_HEVC = "5.1"
+
+
 def _codificacao(cfg_video: dict, hdr_saida: str | None) -> list[str]:
     if hdr_saida:
         prim, trc, matriz = _COR_HDR[hdr_saida]
@@ -172,13 +179,15 @@ def _codificacao(cfg_video: dict, hdr_saida: str | None) -> list[str]:
                          "-profile:v", "main10",
                          "-x265-params",
                          # GOP fechado: o reprodutor da Apple mostrava quadros com blocos deslocados
-                         # (open-gop do x265) ao abrir ou pular no vídeo.
-                         f"colorprim={prim}:transfer={trc}:colormatrix={matriz}:open-gop=0:log-level=error"]
+                         # (open-gop do x265) ao abrir ou pular no vídeo. Nível fixo: ver _NIVEL_H264.
+                         f"colorprim={prim}:transfer={trc}:colormatrix={matriz}:open-gop=0:"
+                         f"level-idc={_NIVEL_HEVC}:log-level=error"]
         return ["-c:v", codec, *qualidade, "-pix_fmt", "yuv420p10le", "-tag:v", "hvc1",
                 "-color_primaries", prim, "-color_trc", trc, "-colorspace", matriz, "-color_range", "tv"]
     codec = cfg_video["codec"]
     if codec == "libx264":
-        qualidade = ["-crf", str(cfg_video["crf"]), "-preset", cfg_video.get("preset", "slow"), "-profile:v", "high"]
+        qualidade = ["-crf", str(cfg_video["crf"]), "-preset", cfg_video.get("preset", "slow"), "-profile:v", "high",
+                     "-level:v", _NIVEL_H264]
     else:
         qualidade = ["-b:v", cfg_video.get("taxa_videotoolbox", "20M")]
     return ["-c:v", codec, *qualidade, "-pix_fmt", "yuv420p",
