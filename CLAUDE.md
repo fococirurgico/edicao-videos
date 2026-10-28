@@ -7,8 +7,12 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 ## Decisões já tomadas (não reabrir sem o usuário pedir)
 
 - Roda no computador do usuário, não na nuvem: Mac Mini Intel e MacBook M2.
-- Entrada e saída pelo Fotos do iCloud: álbum "Para editar" (vídeo principal marcado como
-  favorito + material de apoio) → álbum "Editados". Ainda não implementado.
+- Entrada e saída pelo Fotos do iCloud. Saída pronta (28/10/2026): `--album` ou `[saida] album`
+  importa o editado pelo AppleScript do Fotos (`edicao/fotos.py`); no Mac Mini o álbum é
+  "Vídeos editados", ao lado do "Vídeos para editar" que o usuário já tinha. O controle do Fotos
+  foi autorizado na tela do Mac Mini em 28/10. Entrada pelo álbum (vídeo principal marcado como
+  favorito + material de apoio) ainda não implementada; o original pode estar só na nuvem
+  (biblioteca otimizada), então a leitura precisa baixá-lo (osxphotos).
 - Transcrição local nos dois Macs: faster-whisper (Intel) e mlx-whisper (M2), escolha automática.
 - Decisão de edição pelo Claude via assinatura (`claude -p` com `--json-schema`), sem chave de API.
   A API fica como opção em `config.toml`. Se o Claude falhar, o vídeo sai só com corte de silêncios.
@@ -39,8 +43,15 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
   de voz NÃO está ligado: a amostra com `highpass 80, afftdn nr=40 nf=-30, EQ -2 dB em 250 Hz e
   +2,5 dB em 3,5 kHz, deesser, acompressor, loudnorm` soou abafada para o usuário. Próxima
   tentativa (pendente, com o vídeo de lapela): afftdn nr≈12, sem deesser e sem o corte em 250 Hz.
-- Fluxo de teste atual (28/10): o usuário põe o vídeo em Meu Drive/Vídeos (conta lauro.al@) e o
-  editado volta em Meu Drive/Vídeos/Vídeos Editados; processamento no Mac Mini em ~/edicao-teste.
+- Fluxo de teste atual (28/10): o usuário põe o vídeo em Meu Drive/Vídeos (conta lauro.al@); o
+  editado vai para o álbum "Vídeos editados" do Fotos (o usuário achou o iCloud mais prático que
+  o Drive) e também para Meu Drive/Vídeos/Vídeos Editados. Processamento em ~/edicao-teste.
+- Quadros com blocos deslocados no celular (28/10): o arquivo decodificava sem erro no ffmpeg; o
+  x265 passou a usar GOP fechado (`open-gop=0`). Se voltar, suspeitar da prévia do app do Drive,
+  que reconverte o vídeo, e conferir assistindo pelo Fotos.
+- Silêncio no começo das frases (28/10): o Whisper marca o início da 1ª palavra até 0,8 s antes;
+  `plano.aparar_silencio` apara as bordas dos cortes pelo volume do áudio (25 dB abaixo da fala,
+  nunca abaixo do ruído de fundo + 6 dB).
 - Postagem continua manual.
 - Vídeos em 4K ou 1080p (o usuário vai gravar parte em 1080p para poupar espaço). HDR do iPhone
   (HLG, inclusive modo Cinema) é mantido (ver acima); com `hdr` diferente de "manter" no

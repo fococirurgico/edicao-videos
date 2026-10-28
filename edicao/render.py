@@ -161,7 +161,10 @@ def _codificacao(cfg_video: dict, hdr_saida: str | None) -> list[str]:
         else:
             qualidade = ["-crf", str(cfg_video.get("crf_hdr", 18)), "-preset", cfg_video.get("preset_hdr", "medium"),
                          "-profile:v", "main10",
-                         "-x265-params", f"colorprim={prim}:transfer={trc}:colormatrix={matriz}:log-level=error"]
+                         "-x265-params",
+                         # GOP fechado: o reprodutor da Apple mostrava quadros com blocos deslocados
+                         # (open-gop do x265) ao abrir ou pular no vídeo.
+                         f"colorprim={prim}:transfer={trc}:colormatrix={matriz}:open-gop=0:log-level=error"]
         return ["-c:v", codec, *qualidade, "-pix_fmt", "yuv420p10le", "-tag:v", "hvc1",
                 "-color_primaries", prim, "-color_trc", trc, "-colorspace", matriz, "-color_range", "tv"]
     codec = cfg_video["codec"]

@@ -422,3 +422,18 @@ def test_correcao_vale_para_todas_as_ocorrencias_e_palavra_esticada_na_legenda()
     # A palavra esticada aparece na legenda só no fim dela, onde é dita.
     esticada = [Palavra("vão", 1.0, 4.0)]
     assert plano.remapear(esticada, [plano.Trecho(3.5, 4.2)])[0].inicio == pytest.approx(0.05)
+
+
+def test_aparar_silencio_nas_bordas_dos_cortes():
+    import numpy as np
+    env = np.full(500, -75.0)                  # 5 s a 100 por segundo, fundo bem baixo
+    env[100:200] = -20                         # fala de 1,0 a 2,0 s
+    env[300:400] = -44                         # fala baixa (24 dB abaixo) de 3,0 a 4,0 s
+    trechos = [plano.Trecho(0.4, 1.5), plano.Trecho(1.5, 2.6), plano.Trecho(2.7, 4.3)]
+    primeira = Palavra("Vou", 0.45, 1.2)       # o Whisper marcou o início cedo demais
+    plano.aparar_silencio(trechos, env, palavras=[primeira])
+    assert primeira.inicio == pytest.approx(0.94)              # a legenda não a descarta
+    assert trechos[0].inicio == pytest.approx(0.94)            # silêncio inicial tirado
+    assert trechos[0].fim == 1.5 and trechos[1].inicio == 1.5  # emenda contígua intocada
+    assert trechos[1].fim == pytest.approx(2.12)
+    assert trechos[2].inicio == pytest.approx(2.94)            # fala baixa preservada

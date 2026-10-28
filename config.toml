@@ -59,6 +59,11 @@ fade_audio = 0.02
 # compressão nem redução de ruído. Apague a linha para manter o volume original.
 volume_alvo = -14
 
+[saida]
+# Álbum do Fotos onde o editado é colocado (com o Fotos do iCloud, aparece no iPhone).
+# Vazio = só o arquivo. `--album "..."` sobrepõe.
+album = ""
+
 [marca]
 # Identidade de marca. Configure com `edicao marca` (perguntas ou leitura do manual de marca).
 nome = ""

@@ -52,6 +52,7 @@ def main() -> None:
     trechos = plano.aplicar_decisao(trechos, frases, d, c["folga"], c["silencio_minimo"])
     if d.correcoes:
         palavras = decisao.aplicar_correcoes(frases, d.correcoes)
+    plano.aparar_silencio(trechos, midia.envelope_db(args.original), palavras=palavras)
     zm = cfg["decisao"]["zoom_maximo"]
     plano.saltar_nos_cortes(trechos, e["salto_nos_cortes"], zm)
     trechos = plano.aplicar_ritmo(trechos, palavras, e["plano_maximo"], e["variacao_ritmo"], zm)

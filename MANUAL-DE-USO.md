@@ -80,6 +80,7 @@ cd ~/edicao-videos
 .venv/bin/edicao processar ~/Desktop/video.mov --titulo "Nódulo sem cirurgia?"
 .venv/bin/edicao processar ~/Desktop/video.mov --sem-titulo --sem-graficos
 .venv/bin/edicao processar ~/Desktop/video.mov --pergunta "Cisto no pescoço é perigoso?"
+.venv/bin/edicao processar ~/Desktop/video.mov --album "Vídeos editados"   # vai para o Fotos
 ```
 
 Para errar menos na edição: ao errar uma frase, faça uma pausa e repita a frase inteira. O Claude

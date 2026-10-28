@@ -252,6 +252,42 @@ def remapear(palavras: list[Palavra], trechos: list[Trecho]) -> list[Palavra]:
     return resultado
 
 
+def aparar_silencio(trechos: list[Trecho], envelope, por_segundo: int = 100,
+                    antes: float = 0.06, depois: float = 0.12, palavras=None) -> None:
+    """Tira o silêncio nas bordas de cada bloco de fala (o Whisper marca o início da primeira
+    palavra até 0,8 s antes de ela ser dita). O limiar acompanha o volume da voz: 25 dB abaixo
+    da fala, e nunca abaixo do ruído de fundo, então palavras ditas baixo não são cortadas.
+    Só mexe nas bordas que são cortes (emendas entre trechos contíguos ficam como estão).
+    As `palavras` que atravessam uma borda aparada passam a começar (ou terminar) nela, senão a
+    legenda descartaria a primeira palavra da frase, que continua no áudio."""
+    import numpy as np
+
+    if not trechos or len(envelope) == 0:
+        return
+    fala = float(np.percentile(envelope, 90))
+    fundo = float(np.percentile(envelope, 10))
+    limiar = max(fala - 25, fundo + 6)
+    for i, t in enumerate(trechos):
+        corte_antes = i == 0 or t.inicio - trechos[i - 1].fim > 0.02
+        corte_depois = i + 1 == len(trechos) or trechos[i + 1].inicio - t.fim > 0.02
+        a, b = int(t.inicio * por_segundo), int(t.fim * por_segundo)
+        acima = np.nonzero(envelope[a:b] > limiar)[0]
+        if len(acima) == 0:
+            continue
+        if corte_antes:
+            novo = max(t.inicio, (a + acima[0]) / por_segundo - antes)
+            for p in palavras or []:
+                if t.inicio - 0.5 <= p.inicio < novo < p.fim:
+                    p.inicio = novo
+            t.inicio = novo
+        if corte_depois:
+            novo = min(t.fim, (a + acima[-1] + 1) / por_segundo + depois)
+            for p in palavras or []:
+                if p.inicio < novo < p.fim <= t.fim + 0.5:
+                    p.fim = novo
+            t.fim = novo
+
+
 def alinhar_quadros(trechos: list[Trecho], fps) -> list[Trecho]:
     """Leva início e fim de cada trecho para a grade de quadros do vídeo.
 

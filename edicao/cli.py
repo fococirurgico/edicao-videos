@@ -11,7 +11,7 @@ import platform
 import time
 from pathlib import Path
 
-from . import config, decisao, graficos, legendas, marca, midia, plano, render, rosto, transcricao
+from . import config, decisao, fotos, graficos, legendas, marca, midia, plano, render, rosto, transcricao
 
 
 def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None,
@@ -48,14 +48,15 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     decisao.salvar(d, frases, saida.with_suffix(".decisao.json"))
     if frases and cfg["decisao"]["backend"] != "nenhum":     # --sem-claude: só corta silêncios
         trechos = plano.aplicar_decisao(trechos, frases, d, c["folga"], c["silencio_minimo"])
+    if d.correcoes:
+        palavras = decisao.aplicar_correcoes(frases, d.correcoes)
+    plano.aparar_silencio(trechos, midia.envelope_db(video), palavras=palavras)
     cortadas = len(frases) - len(d.manter)
     print(f"    {cortadas} frases cortadas, {len(d.destaques)} destaques, {len(d.zoom)} zooms, "
           f"{len(d.elementos)} elementos, {len(d.correcoes)} correções")
     if d.titulo:
         print(f"    título sugerido: {d.titulo}")
     print(f"    {total:.1f}s → {sum(t.duracao for t in trechos):.1f}s")
-    if d.correcoes:
-        palavras = decisao.aplicar_correcoes(frases, d.correcoes)
 
     e = cfg["enquadramento"]
     zoom_maximo = cfg["decisao"]["zoom_maximo"]
@@ -180,6 +181,7 @@ def main() -> None:
     p.add_argument("--transcricao-json", type=Path, help="usa uma transcrição já salva")
     p.add_argument("--sem-claude", action="store_true", help="pula a decisão do Claude (só corta silêncios)")
     p.add_argument("--decisao-json", type=Path, help="reaproveita a decisão salva de uma edição anterior")
+    p.add_argument("--album", help="põe o editado neste álbum do Fotos (padrão: [saida] album da configuração)")
     p.add_argument("--titulo", help="título do Reels no início (no lugar do sugerido pelo Claude)")
     p.add_argument("--sem-titulo", action="store_true", help="sem título no início")
     p.add_argument("--pergunta", default="", help="abre com a caixinha de pergunta do Instagram (no lugar do título)")
@@ -213,6 +215,10 @@ def main() -> None:
             cfg["graficos"]["elementos"] = False
         saida = args.saida or args.video.with_name(args.video.stem + "_editado.mp4")
         processar(args.video, saida, cfg, args.transcricao_json, "" if args.sem_titulo else args.titulo, args.pergunta, args.decisao_json)
+        album = args.album if args.album is not None else cfg.get("saida", {}).get("album", "")
+        if album:
+            print(f"pondo no álbum \"{album}\" do Fotos…")
+            fotos.importar(saida, album)
     else:
         medir(args.video, cfg)
 

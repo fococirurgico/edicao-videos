@@ -60,6 +60,19 @@ def volume_integrado(video: Path) -> float | None:
     return float(achados[-1]) if achados else None
 
 
+def envelope_db(video: Path, por_segundo: int = 100):
+    """Volume do áudio (dB, RMS em janelas de 1/por_segundo s), para achar onde a fala começa."""
+    import numpy as np
+
+    taxa = 8000
+    r = subprocess.run(["ffmpeg", "-v", "error", "-i", str(video), "-vn", "-ac", "1", "-ar", str(taxa),
+                        "-f", "f32le", "-"], capture_output=True, check=True)
+    x = np.frombuffer(r.stdout, np.float32)
+    n = taxa // por_segundo
+    x = x[:len(x) // n * n].reshape(-1, n)
+    return 20 * np.log10(np.sqrt((x.astype(np.float64) ** 2).mean(axis=1)) + 1e-9)
+
+
 def detectar_silencios(video: Path, limiar_db: float, minimo: float) -> list[tuple[float, float]]:
     """Intervalos (início, fim) em que o áudio fica abaixo do limiar por pelo menos `minimo` s."""
     stderr = subprocess.run(
