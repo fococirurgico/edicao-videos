@@ -59,7 +59,7 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
    MacBook M2: falta instalar.
 2. Álbum do Fotos (osxphotos): ler "Para editar", importar o resultado em "Editados".
 3. Material de apoio: encaixe pelo Claude, tela dividida, desfoque.
-4. Inspiração em conta de referência (ideia em aberto, ver Notion): perfil de estilo gerado a partir
+4. Inspiração em conta de referência (ideia em aberto, ver Pendências): perfil de estilo gerado a partir
    de vídeos de referência fornecidos pelo usuário, sem baixar das plataformas automaticamente.
 
 ## Pendências
