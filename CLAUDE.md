@@ -32,7 +32,8 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 - O Claude também corrige termos mal transcritos (a legenda de uma palavra deixa erro à mostra).
 - Postagem continua manual.
 - Vídeos em 4K ou 1080p (o usuário vai gravar parte em 1080p para poupar espaço). HDR do iPhone
-  (HLG, inclusive modo Cinema) é convertido para SDR na renderização; saída sempre BT.709.
+  (HLG, inclusive modo Cinema) é mantido (ver acima); com `hdr` diferente de "manter" no
+  `config.toml`, é convertido para SDR BT.709.
 - Roda em vários computadores, com contas diferentes do Claude (a do Claude Code logado em
   cada um) e sem depender de conta no GitHub para usar.
 - Configuração em duas camadas: `config.toml` do programa (padrão, substituído ao atualizar) e
@@ -64,10 +65,16 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 
 ## Pendências
 
-Ficam no Manual do Claude do Mac Mini (memória `pendencia-editor-videos`), em etapas
-"Lauro:/Claude:". Não use o Notion para isso. Abertas em 28/10/2026: teste com microfone de
-lapela (tratamento de voz), teste em 4K com HDR real e modo Cinema, MacBook M2, álbum do Fotos,
-material de apoio e inspiração em conta de referência.
+A lista oficial é a database do Notion 📌 Pendências conhecidas (chaves `nota:edicao-video-*`).
+Sessão com acesso ao Notion: atualize lá (marque Concluído e Concluída em). Sessão sem Notion
+(a do Mac Mini): registre no Manual do Claude do Mac Mini (memória `pendencia-editor-videos`,
+etapas "Lauro:/Claude:") e nesta seção; uma sessão com Notion repassa depois.
+Abertas em 28/10/2026 (já no Notion):
+- `nota:edicao-video-automatica`: teste em 4K com HDR real e modo Cinema; instalar no MacBook M2.
+- `nota:edicao-video-microfone-lapela`: teste com microfone de lapela (tratamento de voz).
+- `nota:edicao-video-album-fotos`: entrada e saída pelo álbum do Fotos (código).
+- `nota:edicao-video-material-apoio`: material de apoio (código).
+- `nota:edicao-video-inspiracao`: inspiração em conta de referência (decisão em aberto).
 
 ## Cuidados técnicos
 
@@ -85,7 +92,7 @@ material de apoio e inspiração em conta de referência.
 - O crop do ffmpeg guarda o tamanho do primeiro quadro (`in_w`/`in_h`); no zoom animado a
   posição do corte é calculada a partir da largura ampliada (ver `render._animacao`).
 - Expressões de suavização entram sempre entre parênteses na fórmula do ffmpeg.
-- Conversão HDR (`render._para_sdr`): roda depois do corte e da escala, em 1080x1920; mobius
+- Conversão HDR para SDR (`render._para_sdr`, só quando `hdr` não é "manter"): roda depois do corte e da escala, em 1080x1920; mobius
   com param 0,6 manteve tons médios e saturação num HLG simulado. Ainda não conferida em vídeo
   real do iPhone, nem o comportamento dos realces.
 - Modo Cinema: falta confirmar se o desfoque de fundo vem aplicado no arquivo exportado
