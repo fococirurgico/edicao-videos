@@ -8,7 +8,7 @@
 # Rodado assim, primeiro baixa o programa para ~/edicao-videos e continua a partir de lá.
 # Também funciona de dentro da pasta do programa: bash instalar.command.
 #
-# O que faz: Homebrew, ffmpeg e Python; ambiente do projeto com o Whisper certo para este Mac;
+# O que faz: Homebrew e Python; ffmpeg; ambiente do projeto com o Whisper certo para este Mac;
 # Claude Code com login na sua conta; baixa o modelo de transcrição; e cria na Mesa o app
 # "Editar vídeo", no qual você arrasta os vídeos para editar.
 set -euo pipefail
@@ -55,8 +55,8 @@ carregar_brew() {
 }
 
 etapa "1/7 Homebrew"
-# O Homebrew não instala mais em Mac Intel. Nele, sem Homebrew já instalado, Python e ffmpeg
-# vêm prontos para a pasta bin/ do programa (uv e pacote imageio-ffmpeg), sem pedir senha.
+# O Homebrew não instala mais em Mac Intel. Nele, sem Homebrew já instalado, o Python vem pronto
+# para a pasta bin/ do programa (uv), sem pedir senha.
 SEM_BREW=0
 if command -v brew >/dev/null 2>&1 || carregar_brew; then
   :
@@ -68,7 +68,7 @@ else
   SEM_BREW=1
 fi
 if [ "$SEM_BREW" = "1" ]; then
-  echo "ok: Mac Intel sem Homebrew; Python e ffmpeg vão para $PASTA/bin"
+  echo "ok: Mac Intel sem Homebrew; o Python vai para $PASTA/bin"
 else
   BREW="$(command -v brew)"
   if ! grep -qs "$BREW shellenv" "$HOME/.zprofile"; then
@@ -78,8 +78,9 @@ else
 fi
 
 etapa "2/7 Python e ffmpeg"
+# O ffmpeg vem na etapa 3, pelo pacote imageio-ffmpeg, em todos os Macs: o do Homebrew (9.x)
+# veio sem libass e sem zscale (sem legenda e sem conversão HDR).
 if [ "$SEM_BREW" = "1" ]; then
-  # O ffmpeg vem na etapa 3, pelo pacote imageio-ffmpeg (já tem legendas e conversão HDR).
   mkdir -p bin
   if [ ! -x bin/uv ]; then
     curl -fsSL https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-apple-darwin.tar.gz \
@@ -87,7 +88,7 @@ if [ "$SEM_BREW" = "1" ]; then
   fi
   bin/uv python install 3.12
 else
-  brew install ffmpeg python@3.12
+  brew install python@3.12
   PYTHON="$(brew --prefix python@3.12)/bin/python3.12"
 fi
 
@@ -112,16 +113,16 @@ fi
 .venv/bin/pip install --quiet --upgrade pip
 .venv/bin/pip install --quiet -e ".[$EXTRA]"
 echo "ok: transcrição no modo $EXTRA"
-if [ "$SEM_BREW" = "1" ]; then
-  .venv/bin/pip install --quiet imageio-ffmpeg
-  FFMPEG="$(ls "$PASTA"/.venv/lib/python3.*/site-packages/imageio_ffmpeg/binaries/ffmpeg-* 2>/dev/null | head -1)"
-  if [ -z "$FFMPEG" ] || ! "$FFMPEG" -version >/dev/null 2>&1; then
-    aviso "Não consegui instalar o ffmpeg (pacote imageio-ffmpeg). Mande esta mensagem para o suporte."
-    exit 1
-  fi
-  ln -sf "$FFMPEG" bin/ffmpeg
-  # O fontconfig embutido nesse ffmpeg não sabe onde ficam as fontes do Mac.
-  cat > bin/fonts.conf <<'XML'
+mkdir -p bin
+.venv/bin/pip install --quiet imageio-ffmpeg
+FFMPEG="$(ls "$PASTA"/.venv/lib/python3.*/site-packages/imageio_ffmpeg/binaries/ffmpeg-* 2>/dev/null | head -1)"
+if [ -z "$FFMPEG" ] || ! "$FFMPEG" -version >/dev/null 2>&1; then
+  aviso "Não consegui instalar o ffmpeg (pacote imageio-ffmpeg). Mande esta mensagem para o suporte."
+  exit 1
+fi
+ln -sf "$FFMPEG" bin/ffmpeg
+# O fontconfig embutido nesse ffmpeg não sabe onde ficam as fontes do Mac.
+cat > bin/fonts.conf <<'XML'
 <?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
 <fontconfig>
@@ -131,9 +132,8 @@ if [ "$SEM_BREW" = "1" ]; then
   <cachedir>~/Library/Caches/edicao-videos/fontconfig</cachedir>
 </fontconfig>
 XML
-  export PATH="$PASTA/bin:$PATH"
-  export FONTCONFIG_FILE="$PASTA/bin/fonts.conf"
-fi
+export PATH="$PASTA/bin:$PATH"
+export FONTCONFIG_FILE="$PASTA/bin/fonts.conf"
 FILTROS="$(ffmpeg -hide_banner -filters 2>/dev/null || true)"
 if ! grep -q " subtitles " <<<"$FILTROS"; then
   aviso "Este ffmpeg não tem legendas (libass): os vídeos vão sair sem legenda. Mande esta mensagem para o suporte."

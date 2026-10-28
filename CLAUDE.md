@@ -68,10 +68,14 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
   `instalar.command` baixa o tarball do main para `~/edicao-videos` (fora de Documentos/Mesa, por
   causa do iCloud), troca o código mantendo `.venv` e se executa de lá. Cria o app "Editar vídeo"
   na Mesa, no qual se arrastam os vídeos. Não pôr segredos nem dados pessoais no repositório.
-- Mac Intel sem Homebrew (o instalador do Homebrew recusa Intel desde 2026): `bin/` do programa
-  com `uv` (Python 3.12), link para o ffmpeg estático do pacote `imageio-ffmpeg` (tem libass e
-  zimg; o evermeet.cx saiu do ar com erro 410) e `fonts.conf` para o fontconfig embutido; `cli._completar_path` põe `bin/` na frente do PATH e define `FONTCONFIG_FILE`.
-  Apple Silicon continua com Homebrew; Intel que já tem Homebrew também.
+- ffmpeg em todos os Macs: link em `bin/` do programa para o ffmpeg estático 7.1 do pacote
+  `imageio-ffmpeg` (tem libass e zimg; o evermeet.cx saiu do ar com erro 410), mais `fonts.conf`
+  para o fontconfig embutido; `cli._completar_path` põe `bin/` na frente do PATH e define
+  `FONTCONFIG_FILE`. Desde 28/10/2026 vale também para o Apple Silicon: o ffmpeg 9 do Homebrew
+  veio sem libass e sem zscale (instalação no MacBook M2 saía sem legenda). Uma versão só nos dois
+  Macs também evita diferenças de comportamento entre versões do ffmpeg.
+- Python: Homebrew (`python@3.12`) no Apple Silicon e no Intel que já tem Homebrew; Mac Intel sem
+  Homebrew (o instalador do Homebrew recusa Intel desde 2026) usa `uv` em `bin/`.
 
 ## Próximos passos
 

@@ -98,7 +98,7 @@ Abra o Terminal, cole a linha abaixo e tecle Enter (Mac Intel ou Apple Silicon, 
 
 Ela baixa o programa para `~/edicao-videos` (fora de Documentos e da Mesa, que o iCloud pode sincronizar) e roda o `instalar.command` de lá. Quem já tem a pasta do programa pode rodar `bash instalar.command` dentro dela.
 
-O instalador cuida de tudo: ffmpeg e Python (pelo Homebrew no Apple Silicon; no Mac Intel, onde o Homebrew não instala mais, Python pelo `uv` e ffmpeg do pacote `imageio-ffmpeg`, com link em `bin/` do programa); o Whisper certo para o Mac (Intel ou Apple Silicon); o Claude Code com login na sua conta; o download do modelo de transcrição; a identidade de marca (opcional); e o app **Editar vídeo** na Mesa. Para editar, arraste o vídeo para esse ícone. Rodar o instalador de novo é seguro: ele só instala o que faltar.
+O instalador cuida de tudo: Python (pelo Homebrew no Apple Silicon; no Mac Intel, onde o Homebrew não instala mais, pelo `uv`); ffmpeg 7.1 do pacote `imageio-ffmpeg` em todos os Macs, com link em `bin/` do programa (o ffmpeg do Homebrew passou a vir sem legendas e sem conversão HDR); o Whisper certo para o Mac (Intel ou Apple Silicon); o Claude Code com login na sua conta; o download do modelo de transcrição; a identidade de marca (opcional); e o app **Editar vídeo** na Mesa. Para editar, arraste o vídeo para esse ícone. Rodar o instalador de novo é seguro: ele só instala o que faltar.
 
 Uso pelo Terminal, dentro da pasta do projeto:
 
