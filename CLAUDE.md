@@ -62,14 +62,12 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 4. Inspiração em conta de referência (ideia em aberto, ver Notion): perfil de estilo gerado a partir
    de vídeos de referência fornecidos pelo usuário, sem baixar das plataformas automaticamente.
 
-## Pendência no Notion
+## Pendências
 
-Database 📌 Pendências conhecidas. Atualize ao avançar (marque Concluído e Concluída em):
-- `nota:edicao-video-automatica`: instalar e testar o protótipo (ação do usuário).
-- `nota:edicao-video-album-fotos`: entrada e saída pelo álbum do Fotos (código).
-- `nota:edicao-video-material-apoio`: material de apoio (código).
-- `nota:edicao-video-zoom-1080p`: limite de zoom em 1080p, decidir depois do teste.
-- `nota:edicao-video-inspiracao`: inspiração em conta de referência (decisão em aberto).
+Ficam no Manual do Claude do Mac Mini (memória `pendencia-editor-videos`), em etapas
+"Lauro:/Claude:". Não use o Notion para isso. Abertas em 28/10/2026: teste com microfone de
+lapela (tratamento de voz), teste em 4K com HDR real e modo Cinema, MacBook M2, álbum do Fotos,
+material de apoio e inspiração em conta de referência.
 
 ## Cuidados técnicos
 

@@ -138,4 +138,4 @@ A paleta completa fica guardada para o material de apoio, que ainda não foi imp
 
 ## Status
 
-Protótipo 0.7.0. Pendência registrada no Notion (📌 Pendências conhecidas, chave `nota:edicao-video-automatica`).
+Protótipo 0.7.0. Pendências registradas no Manual do Claude do Mac Mini.
