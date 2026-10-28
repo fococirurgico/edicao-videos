@@ -130,14 +130,19 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
         print(f"    {animados} trechos com zoom animado")
     arquivo_fonte = cfg["marca"].get("arquivo_fonte")
     pasta_fontes = Path(arquivo_fonte).parent if arquivo_fonte else None
-    ganho = 0.0
-    alvo = cfg.get("audio", {}).get("volume_alvo")
-    if alvo is not None:
+    ganho, filtro_audio = 0.0, ""
+    a = cfg.get("audio", {})
+    alvo = a.get("volume_alvo")
+    if a.get("tratamento", "voz") == "voz":
+        filtro_audio = render.tratamento_voz(alvo if alvo is not None else -14)
+        print(f"    tratamento de voz, volume {alvo if alvo is not None else -14} LUFS")
+    elif alvo is not None:
         atual = midia.volume_integrado(video)
         if atual is not None and atual > -70:
             ganho = max(-10.0, min(20.0, alvo - atual))
             print(f"    volume {atual:.1f} LUFS → {alvo} LUFS ({ganho:+.1f} dB)")
-    render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H), hdr, pasta_fontes, fps, ganho)
+    render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H), hdr, pasta_fontes, fps, ganho,
+                      filtro_audio)
     print(f"pronto: {saida}")
 
 

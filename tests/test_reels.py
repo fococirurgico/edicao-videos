@@ -281,3 +281,18 @@ def test_ganho_de_audio_leva_ao_volume_alvo(tmp_path):
                       {**config.carregar()["video"], "largura": 360, "altura": 640}, 0.02, (360, 640),
                       ganho_db=-14 - antes)
     assert abs(midia.volume_integrado(saida) - (-14)) < 1.0
+
+
+def test_tratamento_de_voz_chega_ao_volume_alvo(tmp_path):
+    baixo = tmp_path / "baixo.mp4"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=gray:s=360x640:d=6:r=30",
+                    "-f", "lavfi", "-i", "sine=f=300:d=6,volume=-28dB", "-shortest", "-c:v", "libx264",
+                    "-c:a", "aac", str(baixo)], check=True)
+    saida = tmp_path / "voz.mp4"
+    render.renderizar(baixo, [plano.Trecho(0, 6, 1.0, quadro=(0, 0, 360, 640))], None, saida,
+                      {**config.carregar()["video"], "largura": 360, "altura": 640}, 0.02, (360, 640),
+                      filtro_audio=render.tratamento_voz(-14))
+    assert abs(midia.volume_integrado(saida) - (-14)) < 1.5
+    import av
+    with av.open(str(saida)) as c:
+        assert c.streams.audio[0].codec_context.sample_rate == 48000

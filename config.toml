@@ -55,9 +55,12 @@ folga = 0.08
 fade_audio = 0.02
 
 [audio]
-# Volume final em LUFS (padrão dos Reels/Instagram: -14). Ganho fixo com limitador de picos, sem
-# compressão nem redução de ruído. Apague a linha para manter o volume original.
+# Volume final em LUFS (padrão dos Reels/Instagram: -14).
 volume_alvo = -14
+# "voz": corte de graves, redução de ruído leve, presença, compressão suave e volume (escolhido
+# pelo usuário em 28/10/2026). "nenhum": só ganho fixo até o volume_alvo, com limitador de picos
+# (apague volume_alvo para manter o volume original).
+tratamento = "voz"
 
 [saida]
 # Álbum do Fotos onde o editado é colocado (com o Fotos do iCloud, aparece no iPhone).

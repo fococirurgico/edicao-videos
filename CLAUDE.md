@@ -39,10 +39,11 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 - Caixinha de pergunta do Instagram no início (`--pergunta "..."`, 28/10), no lugar do título:
   preto e branco, só texto ("Faça uma pergunta" + a pergunta digitada letra a letra). A versão
   com avatar e cores da marca foi recusada pelo usuário.
-- Áudio (28/10): só ganho fixo até -14 LUFS com limitador de picos. Redução de ruído/tratamento
-  de voz NÃO está ligado: a amostra com `highpass 80, afftdn nr=40 nf=-30, EQ -2 dB em 250 Hz e
-  +2,5 dB em 3,5 kHz, deesser, acompressor, loudnorm` soou abafada para o usuário. Próxima
-  tentativa (pendente, com o vídeo de lapela): afftdn nr≈12, sem deesser e sem o corte em 250 Hz.
+- Áudio (28/10): tratamento de voz ligado por padrão (`[audio] tratamento = "voz"`,
+  `render.tratamento_voz`), a amostra "C" escolhida pelo usuário com o vídeo de lapela:
+  `highpass 70, afftdn nr=10 nf=-50, +2 dB em 4 kHz, acompressor 2:1 a -24 dB, loudnorm -14 LUFS`.
+  Rejeitada antes por soar abafada: `afftdn nr=40` + deesser + corte de 2 dB em 250 Hz.
+  `tratamento = "nenhum"` volta ao ganho fixo com limitador.
 - Fluxo de teste atual (28/10): o usuário põe o vídeo em Meu Drive/Vídeos (conta lauro.al@); o
   editado vai para o álbum "Vídeos editados" do Fotos (o usuário achou o iCloud mais prático que
   o Drive) e também para Meu Drive/Vídeos/Vídeos Editados. Processamento em ~/edicao-teste.
@@ -106,11 +107,8 @@ Registradas pela sessão do Mac Mini (sem Notion), a repassar:
   começo das frases → `aparar_silencio`), commit 55086ac. Aguarda nova avaliação.
 - 28/10: `nota:edicao-video-album-fotos` andou: a SAÍDA no álbum do Fotos está pronta e ligada no
   Mac Mini (álbum "Vídeos editados"). Falta a ENTRADA pelo álbum "Vídeos para editar".
-- 28/10: `nota:edicao-video-microfone-lapela`: amostras de 20 s do IMG_4038 (lapela) enviadas,
-  aguardando a escolha do usuário. A = só ganho até -14 LUFS (o padrão atual); B = `highpass=f=70,
-  afftdn=nr=10:nf=-50:tn=1` + ganho; C = B + `equalizer=f=4000:t=q:w=1.5:g=2, acompressor=
-  threshold=-24dB:ratio=2:attack=10:release=200, loudnorm=I=-14:TP=-1.5:LRA=9`. A escolhida vira
-  padrão (filtro de áudio em `render.renderizar`, configurável em `[audio]`).
+- 28/10: `nota:edicao-video-microfone-lapela` CONCLUÍDA: o usuário escolheu a amostra C, que
+  virou o padrão (ver Decisões).
 
 ## Como conferir uma edição (antes de entregar)
 

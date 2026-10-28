@@ -152,6 +152,15 @@ def _parado(t: Trecho, larg: int, alt: int) -> str:
             f"{_ESCALA},crop={larg}:{alt}")
 
 
+def tratamento_voz(volume_alvo: float = -14) -> str:
+    """Tratamento de voz escolhido pelo usuário em 28/10/2026 (amostra "C", gravada com lapela):
+    corte de graves, redução de ruído leve, um pouco de presença, compressão suave e volume no
+    padrão dos Reels. A versão mais forte (afftdn nr=40, deesser, corte em 250 Hz) soou abafada."""
+    return ("highpass=f=70,afftdn=nr=10:nf=-50:tn=1,equalizer=f=4000:t=q:w=1.5:g=2,"
+            "acompressor=threshold=-24dB:ratio=2:attack=10:release=200,"
+            f"loudnorm=I={volume_alvo}:TP=-1.5:LRA=9,aresample=48000")
+
+
 def _codificacao(cfg_video: dict, hdr_saida: str | None) -> list[str]:
     if hdr_saida:
         prim, trc, matriz = _COR_HDR[hdr_saida]
@@ -180,11 +189,12 @@ def renderizar(
     video: Path, trechos: list[Trecho], legendas_ass: Path | None, saida: Path,
     cfg_video: dict, fade_audio: float, dimensoes: tuple[int, int] | None = None,
     hdr: str | None = None, pasta_fontes: Path | None = None, fps: Fraction = Fraction(30),
-    ganho_db: float = 0.0,
+    ganho_db: float = 0.0, filtro_audio: str = "",
 ) -> None:
     """hdr: curva de transferência do original (ver midia.transferencia_hdr); None se SDR.
     pasta_fontes: onde procurar as fontes da legenda além das instaladas no Mac.
-    ganho_db: ganho fixo do áudio (volume no padrão dos Reels), com limitador de picos."""
+    ganho_db: ganho fixo do áudio (volume no padrão dos Reels), com limitador de picos.
+    filtro_audio: cadeia de filtros do ffmpeg aplicada ao áudio editado (substitui o ganho)."""
     larg, alt = cfg_video["largura"], cfg_video["altura"]
     manter_hdr = bool(hdr) and cfg_video.get("hdr", "manter") == "manter"
     hdr_saida = hdr if manter_hdr else None
@@ -237,7 +247,9 @@ def renderizar(
             )
         juntos = "".join(f"[v{i}][a{i}]" for i in range(len(trechos)))
         filtros.append(f"{juntos}concat=n={len(trechos)}:v=1:a=1[vc][acru]")
-        if abs(ganho_db) >= 0.5:
+        if filtro_audio:
+            filtros.append(f"[acru]{filtro_audio}[ac]")
+        elif abs(ganho_db) >= 0.5:
             # Ganho fixo (não comprime a fala) e limitador só para os picos não estourarem.
             filtros.append(f"[acru]volume={ganho_db:.1f}dB,alimiter=limit=0.84:level=false[ac]")
         else:
