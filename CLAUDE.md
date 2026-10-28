@@ -97,9 +97,16 @@ Abertas em 28/10/2026 (já no Notion):
 - `nota:edicao-video-material-apoio`: material de apoio (código).
 - `nota:edicao-video-inspiracao`: inspiração em conta de referência (decisão em aberto).
 Registradas pela sessão do Mac Mini (sem Notion), a repassar:
-- 28/10: IMG_4038 refeito com as correções de corte, sincronia e HDR (commit d42e8dd); aguarda a
-  avaliação do usuário. Pedido em aberto da mesma conversa: usar esse vídeo (lapela) para a
-  amostra de tratamento de voz mais leve (a anterior soou abafada).
+- 28/10: IMG_4038 refeito (cortes, sincronia, HDR): o usuário achou "muito melhor"; pediu e
+  recebeu duas correções (quadros com blocos deslocados no celular → GOP fechado; pausa longa no
+  começo das frases → `aparar_silencio`), commit 55086ac. Aguarda nova avaliação.
+- 28/10: `nota:edicao-video-album-fotos` andou: a SAÍDA no álbum do Fotos está pronta e ligada no
+  Mac Mini (álbum "Vídeos editados"). Falta a ENTRADA pelo álbum "Vídeos para editar".
+- 28/10: `nota:edicao-video-microfone-lapela`: amostras de 20 s do IMG_4038 (lapela) enviadas,
+  aguardando a escolha do usuário. A = só ganho até -14 LUFS (o padrão atual); B = `highpass=f=70,
+  afftdn=nr=10:nf=-50:tn=1` + ganho; C = B + `equalizer=f=4000:t=q:w=1.5:g=2, acompressor=
+  threshold=-24dB:ratio=2:attack=10:release=200, loudnorm=I=-14:TP=-1.5:LRA=9`. A escolhida vira
+  padrão (filtro de áudio em `render.renderizar`, configurável em `[audio]`).
 
 ## Como conferir uma edição (antes de entregar)
 
@@ -134,6 +141,11 @@ legenda adiantada, tentativas erradas no meio e véu escuro no HDR. Antes de ent
 - libx265 com CRF 18 deu só 2,8 Mbps em 1080x1920 HLG (original 13,5 Mbps); CRF 15 dá ~4,6 Mbps.
 - Tempo no Mac Mini 2011: ~6 min para 30 s em SDR; ~30 min para 80 s em HDR com 17 trechos
   animados.
+- Fotos por AppleScript: na primeira chamada o `osascript` fica parado, sem erro nem saída,
+  esperando a aprovação na tela do Mac (Privacidade › Automação); por SSH não dá para aprovar.
+  No Mac Mini não há `timeout`: use `perl -e 'alarm 40; exec @ARGV' osascript ...`. A biblioteca
+  do Mac Mini é a do iCloud do usuário (~15 mil itens, álbuns "Vídeos para editar" e "Reels").
+  Há álbuns com nome repetido; o editor procura e cria o álbum pelo nome exato.
 - Avisos inofensivos: `ffv1 ... bytestream end mismatching` ao ler os trechos animados e
   `non monotonically increasing dts` do muxer null ao decodificar a saída.
 

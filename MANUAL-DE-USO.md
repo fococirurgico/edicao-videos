@@ -128,5 +128,5 @@ A identidade de marca e os ajustes do computador continuam.
 - **Outro erro:** copie a mensagem do Terminal e envie para quem dá suporte, junto com os arquivos
   `*_editado.transcricao.json` e `*_editado.decisao.json` que ficam ao lado do vídeo.
 
-Ainda não disponível: entrada e saída pelo álbum do Fotos e material de apoio (prints,
+Ainda não disponível: entrada pelo álbum do Fotos (a saída já existe: `--album`) e material de apoio (prints,
 depoimentos e imagens).

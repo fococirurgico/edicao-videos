@@ -60,7 +60,7 @@ Guia passo a passo para quem vai usar: [MANUAL-DE-USO.md](MANUAL-DE-USO.md).
 
 O que já funciona: corte de silêncios, transcrição local, decisão pelo Claude (corta retakes e marcas como "corta, vou repetir", também dentro de uma frase quando a tentativa errada e a refeita ficam juntas, escolhe palavras de destaque, frases com zoom, o título, os elementos gráficos e as correções da transcrição), legendas de uma palavra por vez e elementos gráficos animados, exportando em 1080x1920.
 
-**O que fica no vídeo:** só a fala das palavras que o Claude manteve. Fala que a transcrição não captou sai: costuma ser a tentativa errada, que o Whisper tende a pular (por isso ele roda sem o texto anterior como contexto). Uma palavra "esticada" pela transcrição (mais de 1 s) esconde fala não transcrita; dela só fica o fim. Os trechos são alinhados aos quadros do vídeo, para a legenda não se adiantar da fala ao longo das emendas. O volume final vai para -14 LUFS (padrão dos Reels), com um ganho fixo e limitador de picos. Para refazer só o visual sem pedir de novo ao Claude: `--transcricao-json` e `--decisao-json` com os arquivos salvos ao lado do vídeo.
+**O que fica no vídeo:** só a fala das palavras que o Claude manteve. Fala que a transcrição não captou sai: costuma ser a tentativa errada, que o Whisper tende a pular (por isso ele roda sem o texto anterior como contexto). Uma palavra "esticada" pela transcrição (mais de 1 s) esconde fala não transcrita; dela só fica o fim. O silêncio no começo e no fim de cada corte é aparado pelo volume do áudio (o Whisper marca o início da primeira palavra até 0,8 s antes de ela ser dita), com um limiar que acompanha o volume da voz para não cortar palavras ditas baixo. Os trechos são alinhados aos quadros do vídeo, para a legenda não se adiantar da fala ao longo das emendas. O volume final vai para -14 LUFS (padrão dos Reels), com um ganho fixo e limitador de picos. Para refazer só o visual sem pedir de novo ao Claude: `--transcricao-json` e `--decisao-json` com os arquivos salvos ao lado do vídeo.
 
 **Legenda:** só a palavra dita aparece, em `cor_texto`, entrando com um "pop" (cresce um pouco além do tamanho e assenta); as palavras de destaque ficam 25% maiores. Ela fica na tela até a próxima palavra começar (em pausas longas, some logo). `[legendas] palavras_por_linha` maior que 1 volta ao modo de blocos com a palavra atual colorida.
 
@@ -74,7 +74,11 @@ O que já funciona: corte de silêncios, transcrição local, decisão pelo Clau
 
 Sem corte entre dois trechos, a animação parte exatamente do enquadramento anterior. Os trechos animados são gerados quadro a quadro em Python (OpenCV, interpolação bicúbica, 10 bits no HDR), com escala em progressão geométrica: o crop do ffmpeg só anda em pixels inteiros e fazia o zoom "tremer". Eles vão para um arquivo temporário sem perda (FFV1) que entra no grafo final.
 
-O zoom vai de 1,0 a 1,4 e acompanha os olhos em todas as modalidades: eles ficam centralizados na horizontal e um pouco acima do centro (42% da altura), e se algum olho fosse sair do quadro o zoom daquele trecho diminui. Ainda não: álbum do Fotos e material de apoio.
+O zoom vai de 1,0 a 1,4 e acompanha os olhos em todas as modalidades: eles ficam centralizados na horizontal e um pouco acima do centro (42% da altura), e se algum olho fosse sair do quadro o zoom daquele trecho diminui. Ainda não: entrada pelo álbum do Fotos e material de apoio.
+
+**Saída no Fotos:** com `--album "Vídeos editados"` (ou `[saida] album` na configuração do computador), o editado é importado nesse álbum do Fotos pelo AppleScript; com o Fotos do iCloud ligado, aparece no iPhone. Na primeira vez o macOS pede, na tela do Mac, para autorizar o controle do Fotos.
+
+**Conferir uma edição:** `ferramentas/conferir_edicao.py ORIGINAL EDITADO` refaz o plano a partir da transcrição e da decisão salvas e mostra durações, volume, o texto que ficou, os cortes e a sincronia do áudio com a legenda.
 
 Resolução: grave em 4K quando puder. Em 1080p funciona, mas no zoom de 1,4 a imagem é ampliada 1,4 vez e perde um pouco de nitidez (o mesmo que acontece no Edits).
 
