@@ -75,6 +75,10 @@ Abertas em 28/10/2026 (já no Notion):
 - `nota:edicao-video-album-fotos`: entrada e saída pelo álbum do Fotos (código).
 - `nota:edicao-video-material-apoio`: material de apoio (código).
 - `nota:edicao-video-inspiracao`: inspiração em conta de referência (decisão em aberto).
+Registradas pela sessão do Mac Mini (sem Notion), a repassar:
+- 28/10: IMG_4038 refeito com as correções de corte, sincronia e HDR (commit d42e8dd); aguarda a
+  avaliação do usuário. Pedido em aberto da mesma conversa: usar esse vídeo (lapela) para a
+  amostra de tratamento de voz mais leve (a anterior soou abafada).
 
 ## Cuidados técnicos
 
