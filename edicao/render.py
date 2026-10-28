@@ -89,7 +89,7 @@ def animar(video: Path, t: Trecho, inicio: float, fim: float, saida: Path,
     )
     escritor = subprocess.Popen(
         ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", pix,
-         "-s", f"{larg}x{alt}", "-r", str(fps), "-i", "-", "-c:v", "ffv1", "-level", "3", str(saida)],
+         "-s", f"{larg}x{alt}", "-r", str(fps), "-i", "-", "-c:v", "ffv1", "-level", "1", str(saida)],
         stdin=subprocess.PIPE,
     )
     bytes_por = 2 if dez_bits else 1
@@ -124,6 +124,17 @@ def animar(video: Path, t: Trecho, inicio: float, fim: float, saida: Path,
     escritor.stdin.close()
     if escritor.wait() != 0 or leitor.returncode != 0:
         raise RuntimeError(f"falha ao animar o trecho {t.inicio:.2f}–{t.fim:.2f}s")
+    _verificar_sem_perda(saida)
+
+
+def _verificar_sem_perda(arquivo: Path) -> None:
+    """O FFV1 em fatias (level 3) às vezes gravava uma fatia corrompida; na leitura, o decodificador
+    repetia aquele quarto do quadro anterior (rosto "partido" no vídeo final). Agora é level 1,
+    sem fatias, e cada arquivo é conferido antes do uso."""
+    r = subprocess.run(["ffmpeg", "-v", "error", "-err_detect", "explode", "-i", str(arquivo), "-f", "null", "-"],
+                       capture_output=True, text=True)
+    if r.returncode != 0 or r.stderr.strip():
+        raise RuntimeError(f"trecho animado com erro de gravação ({arquivo.name}): {r.stderr.strip()[:200]}")
 
 
 def _pedacos(t: Trecho, fps: Fraction = Fraction(30)) -> list[tuple[float, float, bool]]:

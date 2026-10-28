@@ -437,3 +437,17 @@ def test_aparar_silencio_nas_bordas_dos_cortes():
     assert trechos[0].fim == 1.5 and trechos[1].inicio == 1.5  # emenda contígua intocada
     assert trechos[1].fim == pytest.approx(2.12)
     assert trechos[2].inicio == pytest.approx(2.94)            # fala baixa preservada
+
+
+def test_ancora_do_cartao_prefere_a_versao_que_fica():
+    frases = decisao.dividir_em_frases(_palavras(
+        ("cisto", 0.0, 0.3), ("benigno", 0.3, 0.8), ("e", 0.9, 1.0),
+        ("cisto", 1.2, 1.5), ("benigno", 1.5, 2.0), ("geralmente.", 2.0, 2.6)))
+    d = decisao.validar({"manter": [1], "elementos": [
+        {"frase": 1, "tipo": "check", "texto": "Benigno", "detalhe": "", "ancora": "cisto benigno"},
+        {"frase": 1, "tipo": "alerta", "texto": "X", "detalhe": "", "ancora": "inexistente"}],
+        "cortes_parciais": [{"frase": 1, "trecho": "cisto benigno e"}]}, frases)
+    assert [e["ancora"] for e in d.elementos] == ["cisto benigno", ""]
+    saem = decisao.palavras_cortadas(frases, d.cortes_parciais)
+    assert decisao.tempo_da_ancora(frases[0], "cisto benigno", saem) == (1.2, 2.0)
+    assert decisao.tempo_da_ancora(frases[0], "", saem) == (0.0, 2.6)

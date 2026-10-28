@@ -39,7 +39,8 @@ class Decisao:
     # da frase) ou "rapido" (aproximação curta e suavizada no início da frase).
     tipo_zoom: dict[int, str] = field(default_factory=dict)
     titulo: str = ""
-    # Elementos gráficos: {"frase", "tipo", "texto", "detalhe"} (tipos em graficos.TIPOS).
+    # Elementos gráficos: {"frase", "tipo", "texto", "detalhe", "ancora"} (tipos em graficos.TIPOS);
+    # "ancora" são as palavras da frase em que o assunto do cartão é dito ("" = início da frase).
     elementos: list[dict] = field(default_factory=list)
     # Palavras mal transcritas: {"frase", "errado", "certo"}.
     correcoes: list[dict] = field(default_factory=list)
@@ -81,8 +82,9 @@ ESQUEMA = {
                     "tipo": {"type": "string", "enum": list(TIPOS_ELEMENTO)},
                     "texto": {"type": "string"},
                     "detalhe": {"type": "string"},
+                    "ancora": {"type": "string"},
                 },
-                "required": ["frase", "tipo", "texto", "detalhe"],
+                "required": ["frase", "tipo", "texto", "detalhe", "ancora"],
                 "additionalProperties": False,
             },
             "description": "Elementos gráficos que aparecem durante a frase.",
@@ -161,6 +163,10 @@ Decida a edição:
    - "alerta": um cuidado, risco ou "não faça" (texto em até 5 palavras).
    Use de 1 a 4 elementos, só onde reforçam a mensagem, separados por pelo menos 6 segundos e
    nunca na primeira frase (o título aparece nela). Use só o que foi dito: não invente números.
+   ancora: as palavras da frase, copiadas exatamente e em sequência (2 a 5 palavras), em que o
+   assunto do cartão é dito ("40, 50, 60 anos", "geralmente não traz problema"). O cartão
+   aparece nesse instante, não no começo da frase. Se a frase tiver uma tentativa repetida,
+   use as palavras da versão que fica.
 6. correcoes: palavras que a transcrição automática errou, com a forma correta pelo contexto
    (ex.: termos médicos: errado "ar de frequência", certo "radiofrequência"; errado "nódo",
    certo "nódulo"). "errado" deve aparecer exatamente na frase indicada. Só corrija o que tem
@@ -230,13 +236,16 @@ def validar(bruto: dict, frases: list[Frase], zoom_maximo: float = 1.4) -> Decis
     zoom = {z["frase"]: min(zoom_maximo, max(1.0, float(z["nivel"]))) for z in validos}
     tipo_zoom = {z["frase"]: z.get("tipo") if z.get("tipo") in TIPOS_ZOOM else "seco" for z in validos}
     titulo = " ".join(str(bruto.get("titulo", "")).split())[:60]
+    textos = {f.id: norm_frase(f) for f in frases}
     elementos = [
         {"frase": e["frase"], "tipo": e["tipo"], "texto": " ".join(str(e["texto"]).split())[:48],
-         "detalhe": " ".join(str(e.get("detalhe", "")).split())[:60]}
+         "detalhe": " ".join(str(e.get("detalhe", "")).split())[:60],
+         "ancora": (" ".join(str(e.get("ancora", "")).split())
+                    if _tokens(e.get("ancora", "")) and _achar(textos[e["frase"]], _tokens(e["ancora"])) is not None
+                    else "")}
         for e in bruto.get("elementos", [])
         if e.get("frase") in manter and e.get("tipo") in TIPOS_ELEMENTO and str(e.get("texto", "")).strip()
     ]
-    textos = {f.id: norm_frase(f) for f in frases}
     correcoes = [
         {"frase": c["frase"], "errado": c["errado"], "certo": " ".join(str(c["certo"]).split())}
         for c in bruto.get("correcoes", [])
@@ -281,6 +290,20 @@ def palavras_cortadas(frases: list[Frase], cortes_parciais: list[dict]) -> set[t
         if i is not None:
             saem |= {(f.id, k) for k in range(i, i + len(alvo))}
     return saem
+
+
+def tempo_da_ancora(frase: Frase, ancora: str, saem: set[tuple[int, int]] = frozenset()) -> tuple[float, float]:
+    """Início e fim (no vídeo original) das palavras da âncora na frase; prefere a ocorrência que
+    não saiu por corte parcial. Sem âncora ou sem achar: a frase inteira."""
+    alvo = _tokens(ancora)
+    normais = norm_frase(frase)
+    ocorrencias = [i for i in range(len(normais) - len(alvo) + 1) if alvo and normais[i:i + len(alvo)] == alvo]
+    if not ocorrencias:
+        return frase.inicio, frase.fim
+    fica = [i for i in ocorrencias if (frase.id, i) not in saem]
+    i = (fica or ocorrencias)[0]
+    palavras = frase.palavras[i:i + len(alvo)]
+    return palavras[0].inicio, palavras[-1].fim
 
 
 def aplicar_correcoes(frases: list[Frase], correcoes: list[dict]) -> list[Palavra]:

@@ -434,9 +434,10 @@ def programar(titulo: str, pedidos: list[tuple[str, str, str, float, float]], cf
               duracao_video: float, pergunta: str = "") -> list[Elemento]:
     """Monta a lista final: título no início e os elementos sem se sobrepor.
 
-    pedidos: (tipo, texto, detalhe, início da frase, fim da frase), já na linha do tempo editada.
-    Cada elemento dura entre `duracao_minima` e `duracao_maxima`; os que cairiam sobre o título
-    ou sobre o anterior são deslocados ou descartados. `pergunta` abre o vídeo com a caixinha de
+    pedidos: (tipo, texto, detalhe, início e fim das palavras em que o assunto é dito), já na
+    linha do tempo editada. Cada elemento entra 0,15 s antes dessas palavras e dura entre
+    `duracao_minima` e `duracao_maxima`; um que cairia sobre o anterior é atrasado até 1 s ou
+    descartado (cartão fora do momento da fala parece desconectado). `pergunta` abre o vídeo com a caixinha de
     pergunta do Instagram no lugar do título.
     """
     resultado = []
@@ -451,9 +452,12 @@ def programar(titulo: str, pedidos: list[tuple[str, str, str, float, float]], cf
         livre = fim + 0.4
     if not cfg.get("elementos", True):
         return resultado
-    for tipo, texto, detalhe, ini, fim_frase in sorted(pedidos, key=lambda p: p[3]):
-        ini = max(ini + 0.1, livre)
-        fim = min(max(fim_frase + 0.3, ini + cfg["duracao_minima"]), ini + cfg["duracao_maxima"],
+    for tipo, texto, detalhe, dito, fim_dito in sorted(pedidos, key=lambda p: p[3]):
+        # Entra um pouco antes da palavra (o olho chega antes do ouvido) e fica até depois dela.
+        ini = max(dito - 0.15, livre, 0.0)
+        if ini - dito > 1.0:            # atrasado demais: fora de contexto, melhor não mostrar
+            continue
+        fim = min(max(fim_dito + 1.5, ini + cfg["duracao_minima"]), ini + cfg["duracao_maxima"],
                   duracao_video)
         if fim - ini < cfg["duracao_minima"] * 0.8:
             continue

@@ -185,7 +185,7 @@ def test_validar_titulo_elementos_e_correcoes():
                       {"frase": 1, "errado": "não existe", "certo": "x"}],
     }, frases)
     assert d.titulo == "Nódulo sem cirurgia?"
-    assert d.elementos == [{"frase": 2, "tipo": "numero", "texto": "90%", "detalhe": "dos casos"}]
+    assert d.elementos == [{"frase": 2, "tipo": "numero", "texto": "90%", "detalhe": "dos casos", "ancora": ""}]
     assert len(d.correcoes) == 1
     assert d.destaques == ["radiofrequência"]          # vale a palavra já corrigida
     palavras = decisao.aplicar_correcoes(frases, d.correcoes)
@@ -201,17 +201,20 @@ def test_prompt_pede_titulo_elementos_e_correcoes():
 
 # Elementos gráficos
 
-def test_programar_titulo_e_elementos_sem_sobrepor():
+def test_programar_titulo_e_elementos_no_momento_da_fala():
     g = config.carregar()["graficos"]
-    pedidos = [("numero", "90%", "dos casos", 1.0, 2.0),      # cairia sobre o título: desloca
-               ("frase", "Sem cicatriz", "", 4.0, 9.0),         # frase longa: limita a duração
-               ("check", "Funciona", "", 4.5, 5.0)]             # sobre o anterior: desloca
+    pedidos = [("numero", "90%", "dos casos", 1.0, 1.4),      # dito sob o título: fora de hora, sai
+               ("frase", "Sem cicatriz", "", 4.0, 9.0),         # âncora longa: limita a duração
+               ("check", "Funciona", "", 5.0, 5.3),             # sobre o anterior: atrasaria demais, sai
+               ("alerta", "Não pare", "", 9.6, 10.0)]           # sobre o anterior por pouco: atrasa
     els = graficos.programar("Nódulo sem cirurgia?", pedidos, g, 20.0)
-    assert [e.tipo for e in els] == ["titulo", "numero", "frase", "check"]
+    assert [e.tipo for e in els] == ["titulo", "frase", "alerta"]
     assert els[0].inicio == 0 and els[0].fim == g["duracao_titulo"]
+    assert els[1].inicio == pytest.approx(4.0 - 0.15)          # entra junto com a fala
     for a, b in zip(els, els[1:]):
         assert b.inicio >= a.fim
-    assert els[2].fim - els[2].inicio <= g["duracao_maxima"] + 1e-9
+    assert els[1].fim - els[1].inicio <= g["duracao_maxima"] + 1e-9
+    assert els[2].inicio - 9.6 <= 1.0
     assert graficos.programar("", pedidos, {**g, "elementos": False}, 20.0) == []
 
 
@@ -259,7 +262,7 @@ def test_render_dos_graficos(tmp_path):
 def test_pergunta_no_lugar_do_titulo_e_digitada():
     cfg = config.carregar()
     g = cfg["graficos"]
-    els = graficos.programar("Título ignorado", [("frase", "Sem cicatriz", "", 1.0, 3.0)], g, 20.0,
+    els = graficos.programar("Título ignorado", [("frase", "Sem cicatriz", "", 6.0, 7.0)], g, 20.0,
                              pergunta="Cisto no pescoço é perigoso?")
     assert [e.tipo for e in els] == ["pergunta", "frase"]
     assert els[0].fim == g["duracao_pergunta"] and els[1].inicio >= els[0].fim

@@ -9,7 +9,9 @@ Usa a transcrição e a decisão salvas ao lado do editado (EDITADO.transcricao.
 - o texto que ficou no vídeo e os cortes de mais de 0,3 s (procure tentativas erradas e
   repetições);
 - o desvio do áudio em relação ao plano em vários pontos (é a referência da legenda: deve ficar
-  perto de zero do começo ao fim; antes da correção de 28/10/2026 chegava a 0,4 s).
+  perto de zero do começo ao fim; antes da correção de 28/10/2026 chegava a 0,4 s);
+- quadros com um quarto da imagem congelado enquanto o resto muda (defeito do FFV1 em fatias,
+  28/10/2026: o rosto aparecia "partido" no celular).
 """
 
 import argparse
@@ -85,6 +87,25 @@ def main() -> None:
             desvio = (int(np.argmax(corr)) * 4 / 8000 - 0.5) * 1000
             print(f"  {meio_saida:6.1f} s: {desvio:+5.0f} ms")
         pos += t.duracao
+
+    congelados = quartos_congelados(args.editado)
+    print(f"\nquartos congelados: {len(congelados)}", [f"{t:.2f}s {n}" for t, n in congelados[:10]])
+
+
+def quartos_congelados(video: Path) -> list[tuple[float, str]]:
+    """Quadros em que um quarto da imagem fica igual ao anterior e o resto muda."""
+    r = subprocess.run(["ffmpeg", "-v", "error", "-i", str(video), "-vf", "scale=216:384,format=gray",
+                        "-f", "rawvideo", "-"], capture_output=True, check=True)
+    a = np.frombuffer(r.stdout, np.uint8).reshape(-1, 384, 216).astype(np.float32)
+    quartos = {"sup-esq": (slice(0, 192), slice(0, 108)), "sup-dir": (slice(0, 192), slice(108, 216)),
+               "inf-esq": (slice(192, 384), slice(0, 108)), "inf-dir": (slice(192, 384), slice(108, 216))}
+    achados = []
+    for i in range(1, len(a)):
+        d = {n: float(np.abs(a[i][q] - a[i - 1][q]).mean()) for n, q in quartos.items()}
+        for n, v in d.items():
+            if v < 0.6 and min(x for m, x in d.items() if m != n) > 2.0:
+                achados.append((i / 30, n))
+    return achados
 
 
 if __name__ == "__main__":

@@ -98,9 +98,12 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     duracao_final = sum(t.duracao for t in trechos)
     por_id = {f.id: f for f in frases}
     pedidos = []
+    saem = decisao.palavras_cortadas(frases, d.cortes_parciais)
     for el in d.elementos:
-        tempos = [x for x in (plano.remapear_tempo(por_id[el["frase"]].inicio, trechos),
-                              plano.remapear_tempo(por_id[el["frase"]].fim, trechos)) if x is not None]
+        # O cartão entra quando o assunto é dito (âncora), não no começo da frase.
+        ini, fim = decisao.tempo_da_ancora(por_id[el["frase"]], el.get("ancora", ""), saem)
+        tempos = [x for x in (plano.remapear_tempo(ini, trechos), plano.remapear_tempo(fim, trechos))
+                  if x is not None]
         if tempos:
             pedidos.append((el["tipo"], graficos.limpar(el["texto"]), graficos.limpar(el["detalhe"]),
                             min(tempos), max(tempos)))

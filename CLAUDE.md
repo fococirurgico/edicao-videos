@@ -47,9 +47,17 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 - Fluxo de teste atual (28/10): o usuário põe o vídeo em Meu Drive/Vídeos (conta lauro.al@); o
   editado vai para o álbum "Vídeos editados" do Fotos (o usuário achou o iCloud mais prático que
   o Drive) e também para Meu Drive/Vídeos/Vídeos Editados. Processamento em ~/edicao-teste.
-- Quadros com blocos deslocados no celular (28/10): o arquivo decodificava sem erro no ffmpeg; o
-  x265 passou a usar GOP fechado (`open-gop=0`). Se voltar, suspeitar da prévia do app do Drive,
-  que reconverte o vídeo, e conferir assistindo pelo Fotos.
+- Rosto "partido" no celular (28/10): era um QUARTO da imagem (bordas na metade da largura e da
+  altura) repetido do quadro anterior por alguns quadros. Causa: o arquivo temporário do zoom
+  animado em FFV1 level 3 (4 fatias); de vez em quando uma fatia saía corrompida (aviso
+  `bytestream end mismatching`) e o decodificador repetia o pedaço anterior. Não é falha
+  determinística: arquivos refeitos isoladamente decodificavam sem erro. Agora FFV1 level 1 (sem
+  fatias) e cada temporário é conferido com `-err_detect explode` antes do uso; a ferramenta de
+  conferência procura quartos congelados. O GOP fechado no x265 (`open-gop=0`) ficou por segurança.
+- Cartões no momento da fala (28/10): o usuário notou cartões desconectados do que estava sendo
+  dito. Eles entravam no começo da frase (frases de até 10 s; uma caía na tentativa cortada). O
+  Claude agora dá a `ancora` (palavras exatas em que o assunto é dito) e o cartão entra 0,15 s
+  antes delas; se o anterior o atrasaria mais de 1 s, ele não aparece.
 - Silêncio no começo das frases (28/10): o Whisper marca o início da 1ª palavra até 0,8 s antes;
   `plano.aparar_silencio` apara as bordas dos cortes pelo volume do áudio (25 dB abaixo da fala,
   nunca abaixo do ruído de fundo + 6 dB).
@@ -102,15 +110,21 @@ Abertas em 28/10/2026 (já no Notion):
 - `nota:edicao-video-material-apoio`: material de apoio (código).
 - `nota:edicao-video-inspiracao`: inspiração em conta de referência (decisão em aberto).
 Registradas pela sessão do Mac Mini (sem Notion), a repassar:
-- 28/10: IMG_4038 refeito (cortes, sincronia, HDR): o usuário achou "muito melhor"; pediu e
-  recebeu duas correções (quadros com blocos deslocados no celular → GOP fechado; pausa longa no
-  começo das frases → `aparar_silencio`), commit 55086ac. Aguarda nova avaliação.
+- 28/10: IMG_4038: o usuário achou a edição "muito melhor" e apontou, em duas rodadas, quadros
+  com o rosto "partido" (FFV1 em fatias), pausa longa no começo das frases (`aparar_silencio`) e
+  cartões fora do momento da fala (`ancora`). Versão com tudo corrigido e voz C em renderização
+  no fim do dia 28/10; aguarda avaliação. No álbum "Vídeos editados" ficaram versões anteriores do
+  mesmo vídeo: o usuário apaga (o Claude não apaga itens do Fotos).
 - 28/10: `nota:edicao-video-album-fotos` andou: a SAÍDA no álbum do Fotos está pronta e ligada no
   Mac Mini (álbum "Vídeos editados"). Falta a ENTRADA pelo álbum "Vídeos para editar".
 - 28/10: `nota:edicao-video-microfone-lapela` CONCLUÍDA: o usuário escolheu a amostra C, que
   virou o padrão (ver Decisões).
 
 ## Como conferir uma edição (antes de entregar)
+
+Em 28/10 o usuário achou, assistindo no celular, três defeitos que as conferências da época não
+pegaram (legenda adiantada, quarto da imagem congelado, cartões fora de hora). Cada um virou uma
+verificação da ferramenta abaixo ou uma regra do código; ao achar um defeito novo, faça o mesmo.
 
 Olhar quadros soltos não basta: o IMG_4038 (28/10) parecia certo numa grade de quadros e saiu com
 legenda adiantada, tentativas erradas no meio e véu escuro no HDR. Antes de entregar:
