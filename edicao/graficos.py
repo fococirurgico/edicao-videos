@@ -181,6 +181,7 @@ class Camada:
     # Tamanho da área do desenho (largura, altura): posiciona pelo canto, e não pelo contorno
     # do desenho (que muda enquanto um traço é desenhado aos poucos).
     caixa: tuple[float, float] | None = None
+    fonte: str = ""          # família da fonte; vazio = a da marca (estilo Grafico)
 
 
 def _linha(c: Camada, cx: float, cy: float, escala_grupo: float, opacidade_grupo: float) -> str:
@@ -203,7 +204,8 @@ def _linha(c: Camada, cx: float, cy: float, escala_grupo: float, opacidade_grupo
             desenho = (f"m 0 0 l 0.01 0 l 0 0.01 m {w:.1f} {h:.1f} l {w - 0.01:.2f} {h:.1f} "
                        f"l {w:.1f} {h - 0.01:.2f} {desenho}")
         return f"{{{tags}\\p1}}{desenho}{{\\p0}}"
-    return f"{{{tags}\\fs{c.tamanho:.0f}\\b{c.peso}}}{c.texto}"
+    fonte = f"\\fn{c.fonte}" if c.fonte else ""
+    return f"{{{tags}{fonte}\\fs{c.tamanho:.0f}\\b{c.peso}}}{c.texto}"
 
 
 def _tempo(t: float) -> str:
@@ -278,7 +280,10 @@ class Desenhista:
 
     def _pergunta(self, el: Elemento):
         """Caixinha de pergunta do Instagram, só texto em preto e branco: faixa com o convite e a
-        pergunta digitada."""
+        pergunta digitada. Na fonte do Instagram (a do sistema do iPhone; no Mac, a Helvetica Neue
+        é a mais próxima que o libass acha), não na da marca. A quebra de linha usa a medida da fonte
+        da marca, mais larga, e por isso nunca estoura a caixa."""
+        fonte = self.cfg.get("fonte_pergunta", "Helvetica Neue")
         larg, raio, tam_c, tam = self.W * 0.8, 44, 50, 76
         faixa, pad = 120, 52
         linhas = quebrar(el.texto, tam, larg - 2 * pad, self.fonte, 700)
@@ -305,9 +310,10 @@ class Desenhista:
                 Camada(0, 6, preto, 0.18, desenho=_retangulo(larg, alt, raio), camada=0),
                 Camada(0, 0, branco, desenho=_retangulo(larg, alt, raio), camada=1),
                 Camada(0, topo + faixa / 2, preto, desenho=_retangulo_topo(larg, faixa, raio), camada=2),
-                Camada(0, topo + faixa / 2, branco, texto=convite, tamanho=tam_c, peso=600, camada=3),
+                Camada(0, topo + faixa / 2, branco, texto=convite, tamanho=tam_c, peso=600, camada=3,
+                       fonte=fonte),
                 Camada(0, topo + faixa + corpo / 2, preto, texto=digitada(letras), tamanho=tam, peso=700,
-                       camada=3),
+                       camada=3, fonte=fonte),
             ]
             return camadas, dx, dy, escala, opac
         return estado

@@ -115,9 +115,14 @@ def animar(video: Path, t: Trecho, inicio: float, fim: float, saida: Path,
             ex, ey = w / larg, h / alt                   # pixels da origem por pixel da saída
             # Mapa inverso (saída → origem) com centros de pixel alinhados.
             m = np.array([[ex, 0, x / f + 0.5 * ex - 0.5], [0, ey, y / f + 0.5 * ey - 0.5]])
-            saida_planos.append(cv2.warpAffine(
-                plano, m, (ow, oh), flags=cv2.INTER_CUBIC | cv2.WARP_INVERSE_MAP,
-                borderMode=cv2.BORDER_REPLICATE))
+            novo = cv2.warpAffine(plano, m, (ow, oh), flags=cv2.INTER_CUBIC | cv2.WARP_INVERSE_MAP,
+                                  borderMode=cv2.BORDER_REPLICATE)
+            if dez_bits:
+                # O bicúbico passa um pouco do original junto de pontos muito claros (reflexo nos
+                # óculos em HDR: 1042). Acima de 1023 o FFV1 de 10 bits transbordava e gravava lixo
+                # colorido até o quadro-chave seguinte. Em 8 bits o OpenCV já satura em 255.
+                np.minimum(novo, 1023, out=novo)
+            saida_planos.append(novo)
         escritor.stdin.write(b"".join(pl.tobytes() for pl in saida_planos))
         k += 1
     leitor.wait()

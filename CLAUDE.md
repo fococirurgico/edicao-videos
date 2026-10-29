@@ -38,7 +38,8 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 - O Claude também corrige termos mal transcritos (a legenda de uma palavra deixa erro à mostra).
 - Caixinha de pergunta do Instagram no início (`--pergunta "..."`, 28/10), no lugar do título:
   preto e branco, só texto ("Faça uma pergunta" + a pergunta digitada letra a letra). A versão
-  com avatar e cores da marca foi recusada pelo usuário.
+  com avatar e cores da marca foi recusada pelo usuário. Fonte do Instagram, não a da marca (pedido de 28/10):
+  `[graficos] fonte_pergunta`, padrão "Helvetica Neue" (a do iPhone, SF, o libass não acha).
 - Áudio (28/10): tratamento de voz ligado por padrão (`[audio] tratamento = "voz"`,
   `render.tratamento_voz`), a amostra "C" escolhida pelo usuário com o vídeo de lapela:
   `highpass 70, afftdn nr=10 nf=-50, +2 dB em 4 kHz, acompressor 2:1 a -24 dB, loudnorm -14 LUFS`.
@@ -119,6 +120,12 @@ Registradas pela sessão do Mac Mini (sem Notion), a repassar:
   Mac Mini (álbum "Vídeos editados"). Falta a ENTRADA pelo álbum "Vídeos para editar".
 - 28/10: `nota:edicao-video-microfone-lapela` CONCLUÍDA: o usuário escolheu a amostra C, que
   virou o padrão (ver Decisões).
+
+- Lixo colorido em rajadas de ~0,3 s (28/10, IMG_4038 no modo Cinema): o bicúbico do zoom animado
+  passava de 1023 junto do reflexo nos óculos e o FFV1 de 10 bits transbordava. `animar` limita a
+  1023. Conferir rajadas com a energia de bordas quadro a quadro (o ffmpeg decodifica sem erro).
+- Memória (28/10): cada pedaço de vídeo é uma entrada própria com `-ss`; com todos em `[0:v]` o
+  ffmpeg chegou a 13 GB e travou o MacBook de 8 GB.
 
 ## Como conferir uma edição (antes de entregar)
 

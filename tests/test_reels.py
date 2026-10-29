@@ -345,3 +345,29 @@ def test_tratamento_de_voz_nao_atrasa_o_som():
     y = np.frombuffer(r.stdout, np.float32)
     assert len(y) == len(x)
     assert abs(int(np.argmax(np.abs(y))) - sr * 2) <= 48            # até 1 ms
+
+
+def test_zoom_animado_em_10_bits_nao_transborda(tmp_path):
+    # Pontos no brilho máximo (1023) ao lado de preto: o bicúbico passava de 1023 e o FFV1 de
+    # 10 bits gravava lixo colorido daí até o quadro-chave seguinte (IMG_4038, reflexo nos óculos).
+    larg, alt, n = 360, 640, 20
+    y = np.full((alt, larg), 64, np.uint16)
+    y[::16, ::16] = 1023
+    y[1::16, ::16] = 1023
+    c = np.full((alt // 2, larg // 2), 512, np.uint16)
+    bruto = tmp_path / "fonte.yuv"
+    bruto.write_bytes((y.tobytes() + c.tobytes() + c.tobytes()) * n)
+    fonte = tmp_path / "fonte.mkv"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "yuv420p10le",
+                    "-s", f"{larg}x{alt}", "-r", "30", "-i", str(bruto), "-c:v", "ffv1", str(fonte)], check=True)
+    t = plano.Trecho(0, n / 30, 1.4, quadro=(51, 91, 257, 457), tipo="suave",
+                     quadro_inicial=(0, 0, larg, alt), anim_duracao=n / 30)
+    saida = tmp_path / "anim.mkv"
+    render.animar(fonte, t, 0, n / 30, saida, larg, alt, Fraction(30), (larg, alt), True)
+    r = subprocess.run(["ffmpeg", "-v", "error", "-i", str(saida), "-f", "rawvideo", "-pix_fmt", "yuv420p10le", "-"],
+                       capture_output=True, check=True)
+    tam = (larg * alt + 2 * (larg // 2) * (alt // 2)) * 2
+    for k in range(len(r.stdout) // tam):
+        q = np.frombuffer(r.stdout[k * tam:(k + 1) * tam], np.uint16)
+        croma = q[larg * alt:].astype(np.int32)
+        assert np.abs(croma - 512).max() < 40, f"quadro {k} com cor que não existe na origem"
