@@ -51,15 +51,52 @@ def _fase(t: float, ini: float, dur: float) -> float:
 
 @lru_cache(maxsize=8)
 def _metricas(arquivo: str):
+    """arquivo: caminho da fonte, ou "caminho#n" para a n-ésima fonte de uma coleção (.ttc)."""
     from fontTools.ttLib import TTFont
-    fonte = TTFont(arquivo, lazy=True)
+    caminho, _, numero = arquivo.partition("#")
+    fonte = TTFont(caminho, fontNumber=int(numero or 0), lazy=True)
     os2 = fonte["OS/2"]
     altura = os2.usWinAscent + os2.usWinDescent        # o libass usa a altura "win" como tamanho
     return fonte.getBestCmap(), fonte["hmtx"].metrics, altura
 
 
+@lru_cache(maxsize=16)
+def arquivo_sistema(familia: str, peso: int) -> str | None:
+    """Fonte instalada no Mac com essa família e peso (não itálica), como "caminho" ou "caminho#n"
+    dentro de uma coleção .ttc. None se não houver."""
+    from fontTools.ttLib import TTCollection, TTFont
+    pastas = [Path("/System/Library/Fonts"), Path("/Library/Fonts"), Path.home() / "Library/Fonts"]
+    melhor, distancia = None, None
+    for pasta in pastas:
+        if not pasta.is_dir():
+            continue
+        for arquivo in sorted(pasta.glob("*")):
+            if arquivo.suffix.lower() not in (".ttc", ".ttf", ".otf"):
+                continue
+            try:
+                fontes = (TTCollection(str(arquivo), lazy=True).fonts if arquivo.suffix.lower() == ".ttc"
+                          else [TTFont(str(arquivo), lazy=True)])
+            except Exception:
+                continue
+            for n, f in enumerate(fontes):
+                nomes = f["name"]
+                if familia not in (nomes.getDebugName(16), nomes.getDebugName(1)):
+                    continue
+                estilo = nomes.getDebugName(17) or nomes.getDebugName(2) or ""
+                # Itálico: alguns arquivos (SF Pro Text Bold Italic) não marcam o bit no OS/2.
+                if f["OS/2"].fsSelection & 1 or "Italic" in estilo or "Condensed" in estilo:
+                    continue
+                d = abs(f["OS/2"].usWeightClass - peso)
+                if distancia is None or d < distancia:
+                    melhor = f"{arquivo}#{n}" if arquivo.suffix.lower() == ".ttc" else str(arquivo)
+                    distancia = d
+    return melhor
+
+
 def _arquivo_peso(arquivo_fonte: str, peso: int) -> str | None:
     """Arquivo da mesma família com o peso pedido, se estiver na mesma pasta."""
+    if arquivo_fonte and "#" in arquivo_fonte:
+        return arquivo_fonte                             # fonte de uma coleção, já no peso certo
     if not arquivo_fonte or not Path(arquivo_fonte).exists():
         return None
     nomes = {800: ("ExtraBold", "Heavy", "Black"), 700: ("Bold",), 600: ("SemiBold", "DemiBold")}
@@ -281,12 +318,14 @@ class Desenhista:
     def _pergunta(self, el: Elemento):
         """Caixinha de pergunta do Instagram, só texto em preto e branco: faixa com o convite e a
         pergunta digitada. Na fonte do Instagram (a do sistema do iPhone; no Mac, a Helvetica Neue
-        é a mais próxima que o libass acha), não na da marca. A quebra de linha usa a medida da fonte
-        da marca, mais larga, e por isso nunca estoura a caixa."""
+        é a mais próxima que o libass acha), não na da marca. A quebra de linha mede com essa mesma
+        fonte: medida com a Poppins, "Nódulo na tireoide sempre indica" cabia numa linha e vazava
+        da caixa (a Helvetica Neue sai ~35% mais larga no mesmo tamanho do libass)."""
         fonte = self.cfg.get("fonte_pergunta", "Helvetica Neue")
+        medida = arquivo_sistema(fonte, 700) or self.fonte
         larg, raio, tam_c, tam = self.W * 0.8, 44, 50, 76
         faixa, pad = 120, 52
-        linhas = quebrar(el.texto, tam, larg - 2 * pad, self.fonte, 700)
+        linhas = quebrar(el.texto, tam, larg - 2 * pad, medida, 700)
         corpo = len(linhas) * tam * 1.12 + 2 * pad
         alt = faixa + corpo
         topo = -alt / 2

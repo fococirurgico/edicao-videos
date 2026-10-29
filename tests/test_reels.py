@@ -406,3 +406,16 @@ def test_caixinha_de_pergunta_sai_branca_no_hdr(tmp_path):
     y = np.frombuffer(r.stdout[:180 * 320 * 2], np.uint16).reshape(320, 180)
     assert abs(int(np.median(y[20:50, 20:50])) - 720) < 15     # legenda: branco de referência
     assert abs(int(np.median(y[260:290, 120:150])) - 870) < 15  # caixinha: branco claro
+
+
+def test_pergunta_quebra_linha_pela_fonte_do_instagram():
+    # Medida com a fonte da marca, a pergunta cabia numa linha e vazava da caixa (IMG_2764).
+    arquivo = graficos.arquivo_sistema("Helvetica Neue", 700)
+    if not arquivo:
+        pytest.skip("Helvetica Neue não instalada")
+    texto = "Nódulo na tireoide sempre indica cirurgia?"
+    d = graficos.Desenhista(config.carregar()["graficos"], config.carregar()["marca"], 1080, 1920, Fraction(30))
+    d._pergunta(graficos.Elemento("pergunta", texto, "", 0, 4))
+    linhas = graficos.quebrar(texto, 76, 1080 * 0.8 - 2 * 52, arquivo, 700)
+    assert len(linhas) >= 2
+    assert all(graficos.largura_texto(l, 76, arquivo, 700) <= 1080 * 0.8 - 2 * 52 for l in linhas)
