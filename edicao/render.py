@@ -236,7 +236,12 @@ def renderizar(
     params = f"format={pix},setparams=color_primaries={prim}:color_trc={trc}:colorspace={matriz}:range=tv,setsar=1"
 
     with tempfile.TemporaryDirectory() as pasta:
+        # A entrada 0 só dá o áudio. Cada pedaço de vídeo é uma entrada própria, já posicionada
+        # (-ss antes do -i): com todos lendo [0:v], o ffmpeg dividia a entrada e guardava na memória
+        # os quadros que os pedaços seguintes ainda iam usar (13 GB num vídeo de 1:43 em HDR, o
+        # MacBook de 8 GB travou).
         entradas = ["-i", str(video)]
+        n_entradas = 1
         filtros = []
         for i, t in enumerate(trechos):
             pedacos = _pedacos(t, fps) if dimensoes else [(t.inicio, t.fim, False)]
@@ -246,8 +251,9 @@ def renderizar(
                 if animado:
                     arquivo = Path(pasta) / f"anim{i}_{j}.mkv"
                     animar(video, t, ini, fim, arquivo, larg, alt, fps, dimensoes, manter_hdr or bool(hdr))
-                    n = len(entradas) // 2
+                    n = n_entradas
                     entradas += ["-i", str(arquivo)]
+                    n_entradas += 1
                     # Quadro a mais ou a menos na leitura não desloca o áudio: completa e corta.
                     origem = (f"[{n}:v]setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=0.1,"
                               f"trim=duration={fim - ini:.4f}")
@@ -258,11 +264,13 @@ def renderizar(
                 else:
                     # Grade de quadros fixa e duração exata: o pedaço tem tantos quadros quanto o
                     # áudio correspondente, e as emendas não acumulam diferença.
+                    entradas += ["-ss", f"{ini:.4f}", "-t", f"{fim - ini + 0.5 / fps:.4f}", "-i", str(video)]
                     filtros.append(
-                        f"[0:v]trim=start={ini:.4f}:end={fim + 0.5 / fps:.4f},setpts=PTS-STARTPTS,"
+                        f"[{n_entradas}:v]setpts=PTS-STARTPTS,"
                         f"fps={fps}:round=near,tpad=stop_mode=clone:stop_duration=0.1,trim=duration={fim - ini:.4f},"
                         f"{_parado(t, larg, alt)}{cor},{params}[{rotulo}]"
                     )
+                    n_entradas += 1
                 rotulos.append(f"[{rotulo}]")
             if len(rotulos) == 1:
                 filtros.append(f"{rotulos[0]}null[v{i}]")
