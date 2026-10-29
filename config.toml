@@ -122,6 +122,8 @@ altura_elementos = 285
 duracao_pergunta = 4.5
 # Fonte da caixinha (a do Instagram é a do sistema do iPhone; no Mac, a Helvetica Neue).
 fonte_pergunta = "Helvetica Neue"
+# Brilho do branco da caixinha em vídeo HDR (nits). Com 203, o de referência, ela sai cinza.
+nits_pergunta = 600
 altura_pergunta = 520
 # Cartões durante a fala (número, frase-chave, check, alerta), escolhidos pelo Claude.
 elementos = true

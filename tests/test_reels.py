@@ -371,3 +371,38 @@ def test_zoom_animado_em_10_bits_nao_transborda(tmp_path):
         q = np.frombuffer(r.stdout[k * tam:(k + 1) * tam], np.uint16)
         croma = q[larg * alt:].astype(np.int32)
         assert np.abs(croma - 512).max() < 40, f"quadro {k} com cor que não existe na origem"
+
+
+def _ass_quadrado(arquivo: Path, x: int, y: int):
+    arquivo.write_text(
+        "[Script Info]\nScriptType: v4.00+\nPlayResX: 180\nPlayResY: 320\n\n[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, "
+        "Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, "
+        "MarginL, MarginR, MarginV, Encoding\n"
+        "Style: G,Arial,20,&H00FFFFFF,&H0,&H0,&H0,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1\n\n[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+        f"Dialogue: 0,0:00:00.00,0:00:05.00,G,,0,0,0,,{{\\an7\\pos({x},{y})\\p1}}m 0 0 l 50 0 l 50 50 l 0 50\n",
+        encoding="utf-8")
+
+
+def test_caixinha_de_pergunta_sai_branca_no_hdr(tmp_path):
+    # Com o branco a 203 nits (o da legenda e dos cartões), a caixinha ficava cinza no iPhone.
+    if not midia.tem_filtro("zscale"):
+        pytest.skip("ffmpeg sem zscale")
+    cinza = tmp_path / "cinza.mp4"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=gray:s=360x640:d=1:r=30",
+                    "-f", "lavfi", "-i", "sine=d=1", "-shortest", "-c:v", "libx264", "-c:a", "aac", str(cinza)],
+                   check=True)
+    hlg = _hlg(tmp_path, cinza)
+    legenda, caixinha = tmp_path / "legenda.ass", tmp_path / "caixinha.ass"
+    _ass_quadrado(legenda, 10, 10)
+    _ass_quadrado(caixinha, 110, 250)
+    saida = tmp_path / "hdr.mp4"
+    render.renderizar(hlg, [plano.Trecho(0, 1, 1.0, quadro=(0, 0, 360, 640))], legenda, saida,
+                      {**config.carregar()["video"], "largura": 180, "altura": 320}, 0.02, (360, 640),
+                      "arib-std-b67", graficos_claros=caixinha, nits_claros=600)
+    r = subprocess.run(["ffmpeg", "-v", "error", "-ss", "0.5", "-i", str(saida), "-frames:v", "1",
+                        "-f", "rawvideo", "-pix_fmt", "yuv420p10le", "-"], capture_output=True, check=True)
+    y = np.frombuffer(r.stdout[:180 * 320 * 2], np.uint16).reshape(320, 180)
+    assert abs(int(np.median(y[20:50, 20:50])) - 720) < 15     # legenda: branco de referência
+    assert abs(int(np.median(y[260:290, 120:150])) - 870) < 15  # caixinha: branco claro

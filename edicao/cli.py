@@ -113,14 +113,26 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     if programados:
         print("    " + ", ".join(f"{el.tipo} {el.inicio:.1f}s" for el in programados))
     v = cfg["video"]
+    # A caixinha de pergunta vai num arquivo à parte, renderizado com o branco mais claro no HDR.
+    claros = [el for el in programados if el.tipo == "pergunta"]
     ass = saida.with_suffix(".ass")
     ass.write_text(
         legendas.gerar_ass(plano.remapear(palavras, trechos), cfg["legendas"], cfg["marca"],
                            v["largura"], v["altura"], set(d.destaques),
-                           graficos.gerar(programados, g, cfg["marca"], v["largura"], v["altura"], fps),
+                           graficos.gerar([el for el in programados if el not in claros], g, cfg["marca"],
+                                          v["largura"], v["altura"], fps),
                            [graficos.estilo(cfg["marca"])]),
         encoding="utf-8",
     )
+    ass_claro = None
+    if claros:
+        ass_claro = saida.with_suffix(".pergunta.ass")
+        ass_claro.write_text(
+            legendas.gerar_ass([], cfg["legendas"], cfg["marca"], v["largura"], v["altura"], set(),
+                               graficos.gerar(claros, g, cfg["marca"], v["largura"], v["altura"], fps),
+                               [graficos.estilo(cfg["marca"])]),
+            encoding="utf-8",
+        )
 
     hdr = midia.transferencia_hdr(video)
     if hdr and not midia.tem_filtro("zscale"):
@@ -145,7 +157,7 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
             ganho = max(-10.0, min(20.0, alvo - atual))
             print(f"    volume {atual:.1f} LUFS → {alvo} LUFS ({ganho:+.1f} dB)")
     render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H), hdr, pasta_fontes, fps, ganho,
-                      filtro_audio)
+                      filtro_audio, ass_claro, g.get("nits_pergunta", 600))
     print(f"pronto: {saida}")
 
 

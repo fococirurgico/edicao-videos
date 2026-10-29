@@ -223,11 +223,14 @@ def renderizar(
     cfg_video: dict, fade_audio: float, dimensoes: tuple[int, int] | None = None,
     hdr: str | None = None, pasta_fontes: Path | None = None, fps: Fraction = Fraction(30),
     ganho_db: float = 0.0, filtro_audio: str = "",
+    graficos_claros: Path | None = None, nits_claros: float = 600,
 ) -> None:
     """hdr: curva de transferência do original (ver midia.transferencia_hdr); None se SDR.
     pasta_fontes: onde procurar as fontes da legenda além das instaladas no Mac.
     ganho_db: ganho fixo do áudio (volume no padrão dos Reels), com limitador de picos.
-    filtro_audio: cadeia de filtros do ffmpeg aplicada ao áudio editado (substitui o ganho)."""
+    filtro_audio: cadeia de filtros do ffmpeg aplicada ao áudio editado (substitui o ganho).
+    graficos_claros: ASS sobreposto por cima de tudo, com o branco a `nits_claros` no HDR (caixinha
+    de pergunta do Instagram, que tem de sair branca)."""
     larg, alt = cfg_video["largura"], cfg_video["altura"]
     manter_hdr = bool(hdr) and cfg_video.get("hdr", "manter") == "manter"
     hdr_saida = hdr if manter_hdr else None
@@ -296,28 +299,35 @@ def renderizar(
         else:
             filtros.append("[acru]anull[ac]")
 
-        if legendas_ass:
-            legenda = f"subtitles=filename='{_escapar_caminho_filtro(legendas_ass)}'"
+        # Camadas de legenda/gráficos: (arquivo ASS, nits do branco no HDR). A caixinha de pergunta
+        # vem à parte e mais clara: com o branco a 203 nits (o de referência, que mantém as cores
+        # da marca) ela ficava cinza no iPhone, quase do tom da parede ao fundo.
+        camadas = [(a, n) for a, n in ((legendas_ass, 203), (graficos_claros, nits_claros)) if a]
+        atual = "[vc]"
+        for k, (ass, nits) in enumerate(camadas):
+            legenda = f"subtitles=filename='{_escapar_caminho_filtro(ass)}'"
             if pasta_fontes:
                 legenda += f":fontsdir='{_escapar_caminho_filtro(pasta_fontes)}'"
+            proximo = "[vout]" if k == len(camadas) - 1 else f"[vl{k}]"
             if hdr_saida:
                 # Camada transparente em SDR, convertida para a curva HDR e sobreposta. A
                 # transparência vai à parte: o zscale com r=tv também comprime o alfa para a faixa
                 # limitada (opaco virava 92% e o transparente, um véu preto de 6% no vídeo todo).
                 filtros.append(
                     f"color=c=black@0:s={larg}x{alt}:r={fps},format=rgba,{legenda}:alpha=1,"
-                    "split[camada_cor][camada_alfa]"
+                    f"split[cor{k}][alfa_bruto{k}]"
                 )
-                filtros.append("[camada_alfa]alphaextract,format=gray10le[alfa]")
+                filtros.append(f"[alfa_bruto{k}]alphaextract,format=gray10le[alfa{k}]")
                 filtros.append(
-                    "[camada_cor]format=gbrpf32le,zscale=tin=iec61966-2-1:t=linear:npl=203,zscale=pin=bt709:p=bt2020,"
-                    f"zscale=t={hdr_saida}:npl=203:m=bt2020nc:r=tv,format=yuv420p10le[camada_hdr]"
+                    f"[cor{k}]format=gbrpf32le,zscale=tin=iec61966-2-1:t=linear:npl=203,zscale=pin=bt709:p=bt2020,"
+                    f"zscale=t={hdr_saida}:npl={nits}:m=bt2020nc:r=tv,format=yuv420p10le[hdr{k}]"
                 )
-                filtros.append("[camada_hdr][alfa]alphamerge[camada]")
-                filtros.append(f"[vc][camada]overlay=format=yuv420p10:shortest=1:eof_action=pass,{params}[vout]")
+                filtros.append(f"[hdr{k}][alfa{k}]alphamerge[camada{k}]")
+                filtros.append(f"{atual}[camada{k}]overlay=format=yuv420p10:shortest=1:eof_action=pass,{params}{proximo}")
             else:
-                filtros.append(f"[vc]{legenda}[vout]")
-        else:
+                filtros.append(f"{atual}{legenda}{proximo}")
+            atual = proximo
+        if not camadas:
             filtros.append("[vc]null[vout]")
 
         subprocess.run(

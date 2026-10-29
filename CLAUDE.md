@@ -40,6 +40,9 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
   preto e branco, só texto ("Faça uma pergunta" + a pergunta digitada letra a letra). A versão
   com avatar e cores da marca foi recusada pelo usuário. Fonte do Instagram, não a da marca (pedido de 28/10):
   `[graficos] fonte_pergunta`, padrão "Helvetica Neue" (a do iPhone, SF, o libass não acha).
+  Em HDR a caixinha é uma camada à parte com o branco a `[graficos] nits_pergunta` (600 nits,
+  sinal HLG 0,92): com o branco de referência (203 nits, 0,75), o da legenda e dos cartões, ela
+  saiu cinza no iPhone, quase do tom da parede (IMG_4038 postado assim, 28/10).
 - Áudio (28/10): tratamento de voz ligado por padrão (`[audio] tratamento = "voz"`,
   `render.tratamento_voz`), a amostra "C" escolhida pelo usuário com o vídeo de lapela:
   `highpass 70, afftdn nr=10 nf=-50, +2 dB em 4 kHz, acompressor 2:1 a -24 dB, loudnorm -14 LUFS`.
