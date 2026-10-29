@@ -39,7 +39,11 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 - Caixinha de pergunta do Instagram no início (`--pergunta "..."`, 28/10), no lugar do título:
   preto e branco, só texto ("Faça uma pergunta" + a pergunta digitada letra a letra). A versão
   com avatar e cores da marca foi recusada pelo usuário. Fonte do Instagram, não a da marca (pedido de 28/10):
-  `[graficos] fonte_pergunta`, padrão "Helvetica Neue" (a do iPhone, SF, o libass não acha).
+  `[graficos] fonte_pergunta`, padrão "Helvetica Neue". A San Francisco do sistema (".SF NS") o
+  libass não acha (o CoreText devolve Times); com a SF Pro instalada a partir do pacote oficial da
+  Apple, "SF Pro Display" funciona. O MacBook M2 usa assim desde 29/10, na config do computador
+  (fontes em ~/Library/Fonts); o Mac Mini segue com Helvetica Neue. A quebra de linha mede com
+  a fonte da caixinha (`graficos.arquivo_sistema`).
   Em HDR a caixinha é uma camada à parte com o branco a `[graficos] nits_pergunta` (600 nits,
   sinal HLG 0,92): com o branco de referência (203 nits, 0,75), o da legenda e dos cartões, ela
   saiu cinza no iPhone, quase do tom da parede (IMG_4038 postado assim, 28/10).
