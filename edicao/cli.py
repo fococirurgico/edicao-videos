@@ -157,7 +157,7 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
             ganho = max(-10.0, min(20.0, alvo - atual))
             print(f"    volume {atual:.1f} LUFS → {alvo} LUFS ({ganho:+.1f} dB)")
     render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H), hdr, pasta_fontes, fps, ganho,
-                      filtro_audio, ass_claro, g.get("nits_pergunta", 600))
+                      filtro_audio, ass_claro, g.get("nits_pergunta", 600), g.get("nits_graficos", 400))
     print(f"pronto: {saida}")
 
 

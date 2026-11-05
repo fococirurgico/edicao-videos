@@ -48,6 +48,11 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
   Em HDR a caixinha é uma camada à parte com o branco a `[graficos] nits_pergunta` (600 nits,
   sinal HLG 0,92): com o branco de referência (203 nits, 0,75), o da legenda e dos cartões, ela
   saiu cinza no iPhone, quase do tom da parede (IMG_4038 postado assim, 28/10).
+  Legenda e cartões em HDR: branco a `[graficos] nits_graficos` = 400 (05/11, escolha do usuário).
+  Com 203 o creme (Y10 692) e o dourado (574) ficavam abaixo das partes claras da cena (780–826 no
+  IMG_2764) e pareciam apagados; com 400, 788 e 678. Custo: o marinho clareia (296 → 372) e, numa
+  tela comum, as cores saem um pouco mais claras que as da marca. `render.renderizar` mantém 203
+  como padrão (testes de cor da marca); quem passa 400 é o `cli`.
 - Áudio (28/10): tratamento de voz ligado por padrão (`[audio] tratamento = "voz"`,
   `render.tratamento_voz`), a amostra "C" escolhida pelo usuário com o vídeo de lapela:
   `highpass 70, afftdn nr=10 nf=-50, +2 dB em 4 kHz, acompressor 2:1 a -24 dB, loudnorm -14 LUFS`.

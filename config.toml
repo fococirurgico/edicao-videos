@@ -124,6 +124,10 @@ duracao_pergunta = 4.5
 fonte_pergunta = "Helvetica Neue"
 # Brilho do branco da caixinha em vídeo HDR (nits). Com 203, o de referência, ela sai cinza.
 nits_pergunta = 600
+# Brilho do branco da legenda e dos cartões em vídeo HDR (nits). 203 é o de referência (cores da
+# marca exatas numa tela comum), mas no iPhone a cena fica mais clara e eles pareciam apagados: com
+# 400, o creme e o dourado ficam no nível das partes claras da cena (escolha do usuário, 05/11/2026).
+nits_graficos = 400
 altura_pergunta = 520
 # Cartões durante a fala (número, frase-chave, check, alerta), escolhidos pelo Claude.
 elementos = true

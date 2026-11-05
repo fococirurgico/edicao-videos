@@ -419,3 +419,24 @@ def test_pergunta_quebra_linha_pela_fonte_do_instagram():
     linhas = graficos.quebrar(texto, 76, 1080 * 0.8 - 2 * 52, arquivo, 700)
     assert len(linhas) >= 2
     assert all(graficos.largura_texto(l, 76, arquivo, 700) <= 1080 * 0.8 - 2 * 52 for l in linhas)
+
+
+def test_legenda_e_cartoes_no_brilho_configurado_no_hdr(tmp_path):
+    # Com 203 nits (o de referência), creme e dourado ficavam abaixo das partes claras da cena.
+    if not midia.tem_filtro("zscale"):
+        pytest.skip("ffmpeg sem zscale")
+    cinza = tmp_path / "cinza.mp4"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=gray:s=360x640:d=1:r=30",
+                    "-f", "lavfi", "-i", "sine=d=1", "-shortest", "-c:v", "libx264", "-c:a", "aac", str(cinza)],
+                   check=True)
+    hlg = _hlg(tmp_path, cinza)
+    legenda = tmp_path / "legenda.ass"
+    _ass_quadrado(legenda, 10, 10)
+    saida = tmp_path / "hdr.mp4"
+    render.renderizar(hlg, [plano.Trecho(0, 1, 1.0, quadro=(0, 0, 360, 640))], legenda, saida,
+                      {**config.carregar()["video"], "largura": 180, "altura": 320}, 0.02, (360, 640),
+                      "arib-std-b67", nits_legendas=config.carregar()["graficos"]["nits_graficos"])
+    r = subprocess.run(["ffmpeg", "-v", "error", "-ss", "0.5", "-i", str(saida), "-frames:v", "1",
+                        "-f", "rawvideo", "-pix_fmt", "yuv420p10le", "-"], capture_output=True, check=True)
+    y = np.frombuffer(r.stdout[:180 * 320 * 2], np.uint16).reshape(320, 180)
+    assert abs(int(np.median(y[20:50, 20:50])) - 815) < 15     # branco a 400 nits

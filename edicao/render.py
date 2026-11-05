@@ -223,14 +223,16 @@ def renderizar(
     cfg_video: dict, fade_audio: float, dimensoes: tuple[int, int] | None = None,
     hdr: str | None = None, pasta_fontes: Path | None = None, fps: Fraction = Fraction(30),
     ganho_db: float = 0.0, filtro_audio: str = "",
-    graficos_claros: Path | None = None, nits_claros: float = 600,
+    graficos_claros: Path | None = None, nits_claros: float = 600, nits_legendas: float = 203,
 ) -> None:
     """hdr: curva de transferência do original (ver midia.transferencia_hdr); None se SDR.
     pasta_fontes: onde procurar as fontes da legenda além das instaladas no Mac.
     ganho_db: ganho fixo do áudio (volume no padrão dos Reels), com limitador de picos.
     filtro_audio: cadeia de filtros do ffmpeg aplicada ao áudio editado (substitui o ganho).
     graficos_claros: ASS sobreposto por cima de tudo, com o branco a `nits_claros` no HDR (caixinha
-    de pergunta do Instagram, que tem de sair branca)."""
+    de pergunta do Instagram, que tem de sair branca).
+    nits_legendas: brilho do branco da legenda e dos cartões no HDR. 203 é o de referência (cores
+    da marca exatas numa tela comum); no iPhone a cena HDR fica mais clara e eles parecem apagados."""
     larg, alt = cfg_video["largura"], cfg_video["altura"]
     manter_hdr = bool(hdr) and cfg_video.get("hdr", "manter") == "manter"
     hdr_saida = hdr if manter_hdr else None
@@ -302,7 +304,7 @@ def renderizar(
         # Camadas de legenda/gráficos: (arquivo ASS, nits do branco no HDR). A caixinha de pergunta
         # vem à parte e mais clara: com o branco a 203 nits (o de referência, que mantém as cores
         # da marca) ela ficava cinza no iPhone, quase do tom da parede ao fundo.
-        camadas = [(a, n) for a, n in ((legendas_ass, 203), (graficos_claros, nits_claros)) if a]
+        camadas = [(a, n) for a, n in ((legendas_ass, nits_legendas), (graficos_claros, nits_claros)) if a]
         atual = "[vc]"
         for k, (ass, nits) in enumerate(camadas):
             legenda = f"subtitles=filename='{_escapar_caminho_filtro(ass)}'"
