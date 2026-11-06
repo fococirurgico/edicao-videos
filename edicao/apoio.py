@@ -276,7 +276,7 @@ def montar_cartao(img: np.ndarray, largura_max: int, altura_max: int, raio: int 
     W, H = w + 2 * sombra, h + 2 * sombra
     fundo = np.zeros((H, W), np.float32)
     fundo[sombra + sombra // 3:sombra + sombra // 3 + h, sombra:sombra + w] = mascara / 255.0
-    fundo = cv2.GaussianBlur(fundo, (0, 0), sombra / 2.5) * 0.45
+    fundo = cv2.GaussianBlur(fundo, (0, 0), sombra / 2.5) * 0.45 if sombra else fundo * 0
     cartao = np.zeros((H, W, 4), np.float32)
     a = mascara.astype(np.float32) / 255.0
     cartao[..., 3] = fundo
@@ -286,6 +286,8 @@ def montar_cartao(img: np.ndarray, largura_max: int, altura_max: int, raio: int 
         regiao[..., c] = np.where(alfa_final > 0, img[..., c] * a / np.maximum(alfa_final, 1e-6), 0)
     regiao[..., 3] = alfa_final
     cartao[..., 3] *= 255
+    # Largura e altura pares: o vídeo 4:2:0 (sobretudo o HDR, pelo zscale) recusa dimensão ímpar.
+    cartao = np.pad(cartao, ((0, cartao.shape[0] % 2), (0, cartao.shape[1] % 2), (0, 0)))
     return np.clip(cartao, 0, 255).astype(np.uint8)
 
 

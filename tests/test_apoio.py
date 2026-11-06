@@ -62,6 +62,13 @@ def test_cartao_tem_cantos_transparentes_e_sombra():
     assert meio[3] == 255 and abs(int(meio[0]) - 200) <= 2
 
 
+def test_cartao_sempre_com_dimensoes_pares():
+    # 985x515 (o artigo do IMG_4521) fez o zscale do HDR recusar a imagem.
+    for w, h in ((1179, 615), (1179, 278), (601, 301)):
+        c = apoio.montar_cartao(np.full((h, w, 3), 128, np.uint8), 929, 806)
+        assert c.shape[0] % 2 == 0 and c.shape[1] % 2 == 0
+
+
 def test_desfoque_redondo_preserva_os_cantos_da_caixa():
     img = np.zeros((100, 100, 3), np.uint8)
     img[::2, :] = 255                                                # listras: muda ao desfocar
@@ -107,7 +114,7 @@ def test_imagem_de_apoio_aparece_so_no_tempo_dela(tmp_path, hdr):
         from test_reels import _hlg
         video = _hlg(tmp_path, video)
     png = tmp_path / "branco.png"
-    cv2.imwrite(str(png), np.dstack([np.full((60, 100, 3), 255, np.uint8), np.full((60, 100), 255, np.uint8)]))
+    cv2.imwrite(str(png), apoio.montar_cartao(np.full((61, 101, 3), 255, np.uint8), 101, 61, sombra=0))
     saida = tmp_path / "saida.mp4"
     render.renderizar(video, [plano.Trecho(0, 2, 1.0, quadro=(0, 0, 360, 640))], None, saida,
                       {**config.carregar()["video"], "largura": 180, "altura": 320}, 0.02, (360, 640),
