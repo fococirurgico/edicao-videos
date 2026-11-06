@@ -11,14 +11,17 @@ import platform
 import time
 from pathlib import Path
 
-from . import config, decisao, fotos, graficos, legendas, marca, midia, plano, render, rosto, transcricao
+from . import apoio, config, decisao, fotos, graficos, legendas, marca, midia, plano, render, rosto, transcricao
 
 
 def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None,
-              titulo: str | None = None, pergunta: str = "", decisao_json: Path | None = None) -> None:
+              titulo: str | None = None, pergunta: str = "", decisao_json: Path | None = None,
+              imagens: list[Path] | None = None, apoio_json: Path | None = None) -> None:
     """titulo: sobrepõe o título sugerido pelo Claude ("" = sem título).
     pergunta: abre com a caixinha de pergunta do Instagram no lugar do título.
-    decisao_json: reaproveita a decisão salva de uma edição anterior (mesma transcrição)."""
+    decisao_json: reaproveita a decisão salva de uma edição anterior (mesma transcrição).
+    imagens: material de apoio (prints, artigos), encaixado pelo Claude; apoio_json reaproveita
+    o encaixe salvo de uma edição anterior."""
     c = cfg["cortes"]
     total = midia.duracao(video)
 
@@ -108,11 +111,45 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
             pedidos.append((el["tipo"], graficos.limpar(el["texto"]), graficos.limpar(el["detalhe"]),
                             min(tempos), max(tempos)))
     g = cfg["graficos"]
+    v = cfg["video"]
+    cartoes = []
+    if imagens:
+        if apoio_json:
+            print("    usando o encaixe salvo do material de apoio…")
+            encaixe = apoio.carregar(apoio_json)
+        else:
+            print(f"    encaixando {len(imagens)} imagens de apoio (Claude)…")
+            encaixe = apoio.decidir(frases, d.manter, imagens, cfg["decisao"], cfg["marca"])
+        apoio.salvar(encaixe, saida.with_suffix(".apoio.json"))
+        janelas = []
+        for p in encaixe:
+            if p.gancho or p.frase not in por_id:
+                janelas.append((p.gancho, duracao_final, duracao_final))
+                continue
+            ini, fim = decisao.tempo_da_ancora(por_id[p.frase], p.ancora, saem)
+            tempos = [x for x in (plano.remapear_tempo(ini, trechos), plano.remapear_tempo(fim, trechos))
+                      if x is not None]
+            janelas.append((False, min(tempos), max(tempos)) if tempos else (False, duracao_final, duracao_final))
+        livre = min(g.get("duracao_pergunta", 4.5), duracao_final) + 0.3 if pergunta else 0.0
+        por_nome = {i.name: i for i in imagens}
+        for k, (p, tempos) in enumerate(zip(encaixe, apoio.programar(janelas, g, duracao_final, livre))):
+            if not tempos:
+                print(f"    aviso: {p.arquivo} não coube no vídeo")
+                continue
+            png, desfocadas, w, _ = apoio.preparar(por_nome[p.arquivo], p.ocultar, saida.with_suffix(f".apoio{k}.png"),
+                                                   v["largura"], v["altura"], g)
+            cartoes.append(apoio.Cartao(png, tempos[0], tempos[1], (v["largura"] - w) // 2, g.get("altura_apoio", 170)))
+            print(f"    {p.arquivo}: {'gancho' if p.gancho else 'apoio'} {tempos[0]:.1f}s–{tempos[1]:.1f}s, "
+                  f"{desfocadas} trechos desfocados")
+            if p.gancho:
+                titulo = ""                              # o print do gancho faz o papel do título
     titulo = graficos.limpar(d.titulo if titulo is None else titulo)
     programados = graficos.programar(titulo, pedidos, g, duracao_final, graficos.limpar(pergunta))
+    # Cartão gráfico não divide a tela com uma imagem de apoio.
+    programados = [el for el in programados if el.tipo in ("titulo", "pergunta") or not any(
+        el.inicio < c.fim + 0.5 and c.inicio - 0.5 < el.fim for c in cartoes)]
     if programados:
         print("    " + ", ".join(f"{el.tipo} {el.inicio:.1f}s" for el in programados))
-    v = cfg["video"]
     # A caixinha de pergunta vai num arquivo à parte, renderizado com o branco mais claro no HDR.
     claros = [el for el in programados if el.tipo == "pergunta"]
     ass = saida.with_suffix(".ass")
@@ -157,7 +194,8 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
             ganho = max(-10.0, min(20.0, alvo - atual))
             print(f"    volume {atual:.1f} LUFS → {alvo} LUFS ({ganho:+.1f} dB)")
     render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H), hdr, pasta_fontes, fps, ganho,
-                      filtro_audio, ass_claro, g.get("nits_pergunta", 600), g.get("nits_graficos", 400))
+                      filtro_audio, ass_claro, g.get("nits_pergunta", 600), g.get("nits_graficos", 400),
+                      cartoes, g.get("nits_apoio", 400))
     print(f"pronto: {saida}")
 
 
@@ -205,6 +243,9 @@ def main() -> None:
     p.add_argument("--titulo", help="título do Reels no início (no lugar do sugerido pelo Claude)")
     p.add_argument("--sem-titulo", action="store_true", help="sem título no início")
     p.add_argument("--pergunta", default="", help="abre com a caixinha de pergunta do Instagram (no lugar do título)")
+    p.add_argument("--apoio", type=Path, nargs="+", default=[],
+                   help="material de apoio: prints e imagens que o Claude encaixa no vídeo")
+    p.add_argument("--apoio-json", type=Path, help="reaproveita o encaixe salvo do material de apoio")
     p.add_argument("--sem-graficos", action="store_true", help="sem elementos gráficos durante a fala")
 
     m = sub.add_parser("medir", help="mede a velocidade da transcrição neste Mac")
@@ -234,7 +275,8 @@ def main() -> None:
         if args.sem_graficos:
             cfg["graficos"]["elementos"] = False
         saida = args.saida or args.video.with_name(args.video.stem + "_editado.mp4")
-        processar(args.video, saida, cfg, args.transcricao_json, "" if args.sem_titulo else args.titulo, args.pergunta, args.decisao_json)
+        processar(args.video, saida, cfg, args.transcricao_json, "" if args.sem_titulo else args.titulo, args.pergunta, args.decisao_json,
+                  args.apoio, args.apoio_json)
         album = args.album if args.album is not None else cfg.get("saida", {}).get("album", "")
         if album:
             print(f"pondo no álbum \"{album}\" do Fotos…")

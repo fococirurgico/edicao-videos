@@ -83,6 +83,15 @@ cd ~/edicao-videos
 .venv/bin/edicao processar ~/Desktop/video.mov --album "Vídeos editados"   # vai para o Fotos
 ```
 
+**Material de apoio:** prints e imagens (comentário de seguidor, artigo, exame) entram com
+`--apoio`. O Claude lê as imagens e a fala e decide onde cada uma aparece: a dúvida de um
+seguidor que motiva o vídeo abre o vídeo no lugar do título; as outras entram quando o assunto é
+dito ("um estudo americano mostrou..."). Nome de usuário e foto de perfil saem desfocados.
+
+```bash
+.venv/bin/edicao processar ~/Desktop/video.mov --apoio ~/Desktop/comentario.png ~/Desktop/artigo.png
+```
+
 Para errar menos na edição: ao errar uma frase, faça uma pausa e repita a frase inteira. O Claude
 mantém a última versão e corta as anteriores, assim como "corta", "de novo" e "vou repetir".
 

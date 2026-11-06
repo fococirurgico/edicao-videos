@@ -224,6 +224,7 @@ def renderizar(
     hdr: str | None = None, pasta_fontes: Path | None = None, fps: Fraction = Fraction(30),
     ganho_db: float = 0.0, filtro_audio: str = "",
     graficos_claros: Path | None = None, nits_claros: float = 600, nits_legendas: float = 203,
+    apoios: list | tuple = (), nits_apoio: float = 400,
 ) -> None:
     """hdr: curva de transferência do original (ver midia.transferencia_hdr); None se SDR.
     pasta_fontes: onde procurar as fontes da legenda além das instaladas no Mac.
@@ -232,7 +233,9 @@ def renderizar(
     graficos_claros: ASS sobreposto por cima de tudo, com o branco a `nits_claros` no HDR (caixinha
     de pergunta do Instagram, que tem de sair branca).
     nits_legendas: brilho do branco da legenda e dos cartões no HDR. 203 é o de referência (cores
-    da marca exatas numa tela comum); no iPhone a cena HDR fica mais clara e eles parecem apagados."""
+    da marca exatas numa tela comum); no iPhone a cena HDR fica mais clara e eles parecem apagados.
+    apoios: cartões do material de apoio (apoio.Cartao: PNG com transparência, tempos e posição),
+    sobrepostos por baixo da legenda, com o branco a `nits_apoio` no HDR."""
     larg, alt = cfg_video["largura"], cfg_video["altura"]
     manter_hdr = bool(hdr) and cfg_video.get("hdr", "manter") == "manter"
     hdr_saida = hdr if manter_hdr else None
@@ -306,6 +309,31 @@ def renderizar(
         # da marca) ela ficava cinza no iPhone, quase do tom da parede ao fundo.
         camadas = [(a, n) for a, n in ((legendas_ass, nits_legendas), (graficos_claros, nits_claros)) if a]
         atual = "[vc]"
+        # Material de apoio: imagem parada que entra subindo e esmaecendo e sai esmaecendo.
+        for k, c in enumerate(apoios):
+            dur = c.fim - c.inicio
+            entradas += ["-loop", "1", "-framerate", str(fps), "-t", f"{dur:.4f}", "-i", str(c.png)]
+            n = n_entradas
+            n_entradas += 1
+            fade = min(0.25, dur / 4)
+            img = (f"[{n}:v]format=rgba,fade=t=in:st=0:d={fade:.3f}:alpha=1,"
+                   f"fade=t=out:st={dur - fade:.3f}:d={fade:.3f}:alpha=1,setpts=PTS-STARTPTS+{c.inicio:.4f}/TB")
+            if hdr_saida:
+                filtros.append(f"{img},split[apc{k}][apa{k}]")
+                filtros.append(f"[apa{k}]alphaextract,format=gray10le[apal{k}]")
+                filtros.append(
+                    f"[apc{k}]format=gbrpf32le,zscale=tin=iec61966-2-1:t=linear:npl=203,zscale=pin=bt709:p=bt2020,"
+                    f"zscale=t={hdr_saida}:npl={nits_apoio}:m=bt2020nc:r=tv,format=yuv420p10le[aph{k}]"
+                )
+                filtros.append(f"[aph{k}][apal{k}]alphamerge[ap{k}]")
+                formato = "yuv420p10"
+            else:
+                filtros.append(f"{img}[ap{k}]")
+                formato = "yuv420"
+            subida = f"{c.y}+60*pow(max(0,1-(t-{c.inicio:.4f})/0.4),3)"
+            filtros.append(f"{atual}[ap{k}]overlay=x={c.x}:y='{subida}':eval=frame:format={formato}:"
+                           f"eof_action=pass,{params}[vap{k}]")
+            atual = f"[vap{k}]"
         for k, (ass, nits) in enumerate(camadas):
             legenda = f"subtitles=filename='{_escapar_caminho_filtro(ass)}'"
             if pasta_fontes:
@@ -330,7 +358,7 @@ def renderizar(
                 filtros.append(f"{atual}{legenda}{proximo}")
             atual = proximo
         if not camadas:
-            filtros.append("[vc]null[vout]")
+            filtros.append(f"{atual}null[vout]")
 
         subprocess.run(
             ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *entradas,

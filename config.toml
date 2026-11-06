@@ -129,6 +129,20 @@ nits_pergunta = 600
 # 400, o creme e o dourado ficam no nível das partes claras da cena (escolha do usuário, 05/11/2026).
 nits_graficos = 400
 altura_pergunta = 520
+# Material de apoio (`--apoio IMAGEM ...`): prints e imagens sobre o vídeo, encaixados pelo Claude.
+# O gancho (dúvida de seguidor que motiva o vídeo) abre o vídeo no lugar do título; os outros
+# entram quando o assunto é dito. Nome de usuário e foto de perfil saem desfocados.
+duracao_gancho = 4.0
+duracao_minima_apoio = 3.0
+duracao_maxima_apoio = 5.0
+# Largura máxima e altura máxima do cartão da imagem, em fração do vídeo, e a altura do topo
+# dele em pixels (vídeo 1080x1920; a legenda fica embaixo).
+largura_apoio = 0.86
+altura_max_apoio = 0.42
+altura_apoio = 170
+desfocar = true
+# Brilho do branco das imagens em vídeo HDR (nits), como o dos cartões.
+nits_apoio = 400
 # Cartões durante a fala (número, frase-chave, check, alerta), escolhidos pelo Claude.
 elementos = true
 duracao_minima = 2.2

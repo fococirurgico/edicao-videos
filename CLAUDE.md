@@ -25,7 +25,10 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
   depois de cortes), suave (cinematográfico, ao longo da frase) e rápido suavizado (0,4 s).
 - Material de apoio: o Claude encaixa prints e imagens pelo conteúdo (marca falada opcional);
   depoimento em vídeo em tela dividida com o vídeo do autor congelado; desfoque de nomes e
-  fotos de perfil ligado por padrão. Ainda não implementado.
+  fotos de perfil ligado por padrão. Imagens implementadas em 06/11/2026 (`--apoio`,
+  `edicao/apoio.py`): o print da dúvida de seguidor é o gancho e abre o vídeo no lugar do título;
+  o desfoque é pelo Vision do macOS (OCR + rostos em blocos), não por caixas do modelo. Depoimento
+  em vídeo e entrada automática pelo álbum ainda não.
 - Legenda (26/10/2026): uma palavra por vez, na cor `cor_texto` (NICE: dourado da marca
   #C1A752, Poppins), com pop; destaques 25% maiores. Modo de blocos continua com
   `palavras_por_linha` > 1.
@@ -107,7 +110,7 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
    dois vídeos de Samsung e IMG_4038 (iPhone HLG + Dolby Vision, lapela, 28/10). Falta 4K.
    O usuário prefere a conta lauro.al@ para as edições. MacBook M2: falta instalar.
 2. Álbum do Fotos (osxphotos): ler "Para editar", importar o resultado em "Editados".
-3. Material de apoio: encaixe pelo Claude, tela dividida, desfoque.
+3. Material de apoio: imagens feitas (06/11); falta depoimento em vídeo em tela dividida.
 4. Inspiração em conta de referência (ideia em aberto, ver Pendências): perfil de estilo gerado a partir
    de vídeos de referência fornecidos pelo usuário, sem baixar das plataformas automaticamente.
 

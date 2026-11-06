@@ -3,7 +3,8 @@ name = "edicao-videos"
 version = "0.7.0"
 description = "Pipeline automático de edição de vídeos curtos"
 requires-python = ">=3.11"
-dependencies = ["opencv-python-headless>=4.8", "numpy>=1.24", "fonttools>=4.40", "av>=14,<16"]  # av 16+ quebra o faster-whisper (metadata_errors)
+dependencies = ["opencv-python-headless>=4.8", "numpy>=1.24", "fonttools>=4.40", "av>=14,<16",
+                "pyobjc-framework-Vision>=10; sys_platform == 'darwin'"]  # OCR e rostos do material de apoio  # av 16+ quebra o faster-whisper (metadata_errors)
 
 [project.optional-dependencies]
 # Mac Intel (e também funciona no Apple Silicon, só que sem usar a GPU)
