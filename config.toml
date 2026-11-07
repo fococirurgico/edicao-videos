@@ -9,6 +9,10 @@ backend = "auto"
 # Tamanhos: "tiny", "base", "small", "medium", "large-v3". Maior = mais preciso e mais lento.
 modelo = "small"
 idioma = "pt"
+# Palavra mais longa que isto (segundos) costuma ser uma tentativa de fala engolida pelo
+# modelo pequeno: o trecho em volta é retranscrito com `modelo_revisao`. Vazio desliga.
+limite_palavra_longa = 1.5
+modelo_revisao = "large-v3"
 
 [decisao]
 # Quem decide retakes, destaques e zoom:

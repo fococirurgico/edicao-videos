@@ -19,6 +19,11 @@ guia para quem usa no MANUAL-DE-USO.md (mantenha-o atualizado quando a instalaç
 - Fica no vídeo só a fala das palavras que o Claude manteve (28/10/2026, muda a regra antiga
   "áudio não transcrito permanece"): com a regra antiga, as tentativas erradas que o Whisper
   pulava ficavam no vídeo. Na dúvida sobre uma frase, o Claude mantém; fala não transcrita sai.
+- Tomada escondida (06/11/2026, IMG_4521): o modelo small às vezes engole a tentativa abandonada
+  esticando UMA palavra ("foi" com 3 s); sem as palavras, o Claude não via a repetição e a edição
+  emendava a tomada errada na certa. Palavra acima de `limite_palavra_longa` (1,5 s) faz o trecho
+  em volta (4 s antes, 1 s depois) ser retranscrito com `modelo_revisao` (large-v3), só ali:
+  ~15 s a mais no M2. Fala normal não passa de ~1,4 s.
 - Zoom de 1,0 a 1,4 acompanhando os olhos, a 42% da altura (um pouco acima do centro);
   o zoom diminui se algum olho fosse sair da margem.
 - Três modalidades de zoom, escolhidas pelo Claude por frase: seco (salto na emenda, natural

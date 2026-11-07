@@ -37,6 +37,10 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
         backend = transcricao.escolher_backend(cfg["transcricao"]["backend"])
         print(f"2/5 transcrevendo localmente ({backend}, modelo {cfg['transcricao']['modelo']})…")
         palavras = transcricao.transcrever(video, cfg["transcricao"])
+        palavras, revistos = transcricao.revisar_tomadas(video, palavras, cfg["transcricao"])
+        if revistos:
+            print(f"    {revistos} trecho(s) com palavra longa retranscrito(s) com "
+                  f"{cfg['transcricao']['modelo_revisao']} (possível tomada escondida)")
         transcricao.salvar(palavras, saida.with_suffix(".transcricao.json"))
     print(f"    {len(palavras)} palavras")
 
