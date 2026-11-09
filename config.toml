@@ -70,6 +70,9 @@ tratamento = "voz"
 # Álbum do Fotos onde o editado é colocado (com o Fotos do iCloud, aparece no iPhone).
 # Vazio = só o arquivo. `--album "..."` sobrepõe.
 album = ""
+# Álbum das prévias (`edicao processar --previa`): versão rápida para aprovar no iPhone antes do
+# vídeo final. Vazio = só o arquivo.
+album_previas = ""
 
 [marca]
 # Identidade de marca. Configure com `edicao marca` (perguntas ou leitura do manual de marca).

@@ -92,6 +92,19 @@ dito ("um estudo americano mostrou..."). Nome de usuário e foto de perfil saem 
 .venv/bin/edicao processar ~/Desktop/video.mov --apoio ~/Desktop/comentario.png ~/Desktop/artigo.png
 ```
 
+**Conferir antes do vídeo final (economiza re-renderizações):**
+
+```bash
+.venv/bin/edicao planejar ~/Desktop/video.mov --apoio ~/Desktop/print.png   # plano + avisos, sem renderizar
+.venv/bin/edicao processar ~/Desktop/video.mov --apoio ~/Desktop/print.png --previa   # prévia rápida no álbum "Prévias"
+.venv/bin/edicao processar ~/Desktop/video.mov --apoio ~/Desktop/print.png            # vídeo final
+```
+
+O `planejar` mostra quais frases ficam e avisa trechos suspeitos (fala refeita que não foi
+transcrita, palavra cortada no meio). A prévia sai em menos de 1 minuto, menor e sem o zoom
+animado, só para conferir cortes, legendas e imagens no iPhone. As decisões ficam salvas: o vídeo
+final usa o mesmo plano da prévia. Para decidir tudo de novo, acrescente `--refazer`.
+
 Para errar menos na edição: ao errar uma frase, faça uma pausa e repita a frase inteira. O Claude
 mantém a última versão e corta as anteriores, assim como "corta", "de novo" e "vou repetir".
 

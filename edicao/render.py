@@ -224,7 +224,7 @@ def renderizar(
     hdr: str | None = None, pasta_fontes: Path | None = None, fps: Fraction = Fraction(30),
     ganho_db: float = 0.0, filtro_audio: str = "",
     graficos_claros: Path | None = None, nits_claros: float = 600, nits_legendas: float = 203,
-    apoios: list | tuple = (), nits_apoio: float = 400,
+    apoios: list | tuple = (), nits_apoio: float = 400, previa: bool = False,
 ) -> None:
     """hdr: curva de transferência do original (ver midia.transferencia_hdr); None se SDR.
     pasta_fontes: onde procurar as fontes da legenda além das instaladas no Mac.
@@ -235,8 +235,15 @@ def renderizar(
     nits_legendas: brilho do branco da legenda e dos cartões no HDR. 203 é o de referência (cores
     da marca exatas numa tela comum); no iPhone a cena HDR fica mais clara e eles parecem apagados.
     apoios: cartões do material de apoio (apoio.Cartao: PNG com transparência, tempos e posição),
-    sobrepostos por baixo da legenda, com o branco a `nits_apoio` no HDR."""
+    sobrepostos por baixo da legenda, com o branco a `nits_apoio` no HDR.
+    previa: versão rápida para conferir cortes, legendas e gráficos: sem o zoom animado (o
+    trecho fica parado no enquadramento final, sem gerar quadros em Python), codificada pelo chip
+    do Mac e reduzida a 540x960 no fim (legendas e gráficos são desenhados no tamanho normal)."""
     larg, alt = cfg_video["largura"], cfg_video["altura"]
+    if previa:
+        # HDR mantido (a conversão para SDR deixava a pele alaranjada e estourada), codificado pelo chip.
+        cfg_video = {**cfg_video, "codec": "h264_videotoolbox", "codec_hdr": "hevc_videotoolbox",
+                     "taxa_videotoolbox": "6M"}
     manter_hdr = bool(hdr) and cfg_video.get("hdr", "manter") == "manter"
     hdr_saida = hdr if manter_hdr else None
     pix = "yuv420p10le" if manter_hdr else "yuv420p"
@@ -257,7 +264,7 @@ def renderizar(
         n_entradas = 1
         filtros = []
         for i, t in enumerate(trechos):
-            pedacos = _pedacos(t, fps) if dimensoes else [(t.inicio, t.fim, False)]
+            pedacos = _pedacos(t, fps) if dimensoes and not previa else [(t.inicio, t.fim, False)]
             rotulos = []
             for j, (ini, fim, animado) in enumerate(pedacos):
                 rotulo = f"v{i}_{j}"
@@ -359,10 +366,14 @@ def renderizar(
             atual = proximo
         if not camadas:
             filtros.append(f"{atual}null[vout]")
+        final = "[vout]"
+        if previa:
+            filtros.append(f"[vout]scale={larg // 2}:{alt // 2}[vprevia]")
+            final = "[vprevia]"
 
         subprocess.run(
             ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *entradas,
-             "-filter_complex", ";".join(filtros), "-map", "[vout]", "-map", "[ac]",
+             "-filter_complex", ";".join(filtros), "-map", final, "-map", "[ac]",
              *_codificacao(cfg_video, hdr_saida, fps),
              "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", str(saida)],
             check=True,

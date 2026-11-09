@@ -148,6 +148,25 @@ Registradas pela sessão do Mac Mini (sem Notion), a repassar:
 - Memória (28/10): cada pedaço de vídeo é uma entrada própria com `-ss`; com todos em `[0:v]` o
   ffmpeg chegou a 13 GB e travou o MacBook de 8 GB.
 
+## Fluxo sem retrabalho (09/11/2026, pedido do usuário)
+
+Cada ajuste depois do render final custava ~10 min (vídeo de 1:16 em HDR no M2), e quase todo o
+retrabalho vinha de erro de corte que só aparecia no vídeo pronto. O fluxo agora é:
+1. `edicao planejar VIDEO [--apoio ...] [--pergunta ...]`: transcreve, decide, encaixa as imagens,
+   confere os cortes (`edicao/checagem.py`) e mostra o plano (frases ✔/✘ com o tempo no editado,
+   cartões, correções). Nada é renderizado. Mostre o plano e as suspeitas ao usuário e ajuste o
+   `*.decisao.json` antes de seguir.
+2. `edicao processar VIDEO --previa`: 540x960, zoom parado no enquadramento final, áudio sem
+   tratamento, HEVC pelo chip (HDR mantido: a conversão para SDR deixava a pele alaranjada); vai
+   para `[saida] album_previas` ("Prévias" nos dois Macs). ~45 s para 50 s de vídeo.
+3. `edicao processar VIDEO`: o final, com tudo. Sem render de novo para cada ajuste.
+O processar e o planejar reaproveitam a transcrição, a decisão e o encaixe salvos com o nome do
+vídeo final (`*_editado.transcricao.json` etc.); `--refazer` decide de novo. A decisão só é
+reaproveitada junto com a transcrição dela. Os olhos ficam em `VIDEO.olhos.json`.
+A checagem avisa: voz sem palavra (tomada refeita que o Whisper engoliu sem esticar palavra,
+IMG_4539 em 1:57; a suspeita é retranscrita sozinha, e isolada a 2ª tentativa aparece), palavra
+cortada (borda de corte dentro de palavra ou com voz depois) e palavra longa demais.
+
 ## Como conferir uma edição (antes de entregar)
 
 Em 28/10 o usuário achou, assistindo no celular, três defeitos que as conferências da época não

@@ -1,6 +1,8 @@
 """Linha de comando.
 
+  edicao planejar VIDEO      decide a edição e confere os cortes, sem renderizar
   edicao processar VIDEO     edita um vídeo (cortes, legendas, destaques e zoom)
+  edicao processar --previa  prévia rápida (menor, sem zoom animado) para aprovar antes do final
   edicao medir VIDEO         mede o tempo da transcrição local neste Mac
   edicao marca               configura a identidade de marca deste computador
 """
@@ -11,18 +13,23 @@ import platform
 import time
 from pathlib import Path
 
-from . import apoio, config, decisao, fotos, graficos, legendas, marca, midia, plano, render, rosto, transcricao
+from . import apoio, checagem, config, decisao, fotos, graficos, legendas, marca, midia, plano, render, rosto, transcricao
 
 
 def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None,
               titulo: str | None = None, pergunta: str = "", decisao_json: Path | None = None,
-              imagens: list[Path] | None = None, apoio_json: Path | None = None) -> None:
+              imagens: list[Path] | None = None, apoio_json: Path | None = None,
+              so_planejar: bool = False, previa: bool = False) -> None:
     """titulo: sobrepõe o título sugerido pelo Claude ("" = sem título).
     pergunta: abre com a caixinha de pergunta do Instagram no lugar do título.
     decisao_json: reaproveita a decisão salva de uma edição anterior (mesma transcrição).
     imagens: material de apoio (prints, artigos), encaixado pelo Claude; apoio_json reaproveita
-    o encaixe salvo de uma edição anterior."""
+    o encaixe salvo de uma edição anterior.
+    so_planejar: para depois da decisão e da checagem (nada é renderizado).
+    previa: render rápido para conferir (ver render.renderizar); os arquivos de trabalho (decisão,
+    encaixe, legenda) ficam com o nome do vídeo final, para o final reaproveitá-los."""
     c = cfg["cortes"]
+    base = saida.with_name(saida.stem.removesuffix("_previa") + saida.suffix)
     total = midia.duracao(video)
 
     print("1/5 detectando silêncios…")
@@ -41,7 +48,7 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
         if revistos:
             print(f"    {revistos} trecho(s) com palavra longa retranscrito(s) com "
                   f"{cfg['transcricao']['modelo_revisao']} (possível tomada escondida)")
-        transcricao.salvar(palavras, saida.with_suffix(".transcricao.json"))
+        transcricao.salvar(palavras, base.with_suffix(".transcricao.json"))
     print(f"    {len(palavras)} palavras")
 
     frases = decisao.dividir_em_frases(palavras)
@@ -52,18 +59,37 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
         print(f"3/5 decidindo a edição ({cfg['decisao']['backend']}, {len(frases)} frases)…")
         cfg["decisao"]["pausa_corte"] = c["silencio_minimo"]
         d = decisao.decidir(frases, cfg["decisao"], cfg["marca"])
-    decisao.salvar(d, frases, saida.with_suffix(".decisao.json"))
+    decisao.salvar(d, frases, base.with_suffix(".decisao.json"))
     if frases and cfg["decisao"]["backend"] != "nenhum":     # --sem-claude: só corta silêncios
         trechos = plano.aplicar_decisao(trechos, frases, d, c["folga"], c["silencio_minimo"])
     if d.correcoes:
         palavras = decisao.aplicar_correcoes(frases, d.correcoes)
-    plano.aparar_silencio(trechos, midia.envelope_db(video), palavras=palavras)
+    envelope = midia.envelope_db(video)
+    plano.aparar_silencio(trechos, envelope, palavras=palavras)
     cortadas = len(frases) - len(d.manter)
     print(f"    {cortadas} frases cortadas, {len(d.destaques)} destaques, {len(d.zoom)} zooms, "
           f"{len(d.elementos)} elementos, {len(d.correcoes)} correções")
     if d.titulo:
         print(f"    título sugerido: {d.titulo}")
     print(f"    {total:.1f}s → {sum(t.duracao for t in trechos):.1f}s")
+    suspeitas = checagem.checar(video, trechos, palavras, envelope, cfg["transcricao"])
+    texto = checagem.relatorio(suspeitas)
+    print(texto)
+    base.with_suffix(".checagem.txt").write_text(texto + "\n", encoding="utf-8")
+
+    encaixe = []
+    if imagens:
+        if apoio_json:
+            print("    usando o encaixe salvo do material de apoio…")
+            encaixe = apoio.carregar(apoio_json)
+        else:
+            print(f"    encaixando {len(imagens)} imagens de apoio (Claude)…")
+            encaixe = apoio.decidir(frases, d.manter, imagens, cfg["decisao"], cfg["marca"])
+        apoio.salvar(encaixe, base.with_suffix(".apoio.json"))
+    if so_planejar:
+        print(_resumo_plano(frases, d, trechos, encaixe))
+        print(f"plano salvo: {base.with_suffix('.decisao.json')}")
+        return
 
     e = cfg["enquadramento"]
     zoom_maximo = cfg["decisao"]["zoom_maximo"]
@@ -76,7 +102,7 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     olhos = []
     if e["rastrear_rosto"]:
         print("    procurando os olhos para enquadrar o zoom…")
-        olhos = rosto.detectar_olhos(video, W, H, e["amostras_por_segundo"])
+        olhos = _olhos(video, W, H, e["amostras_por_segundo"])
         print(f"    olhos encontrados em {len(olhos)} quadros")
     v = cfg["video"]
     proporcao = v["largura"] / v["altura"]
@@ -118,13 +144,6 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
     v = cfg["video"]
     cartoes = []
     if imagens:
-        if apoio_json:
-            print("    usando o encaixe salvo do material de apoio…")
-            encaixe = apoio.carregar(apoio_json)
-        else:
-            print(f"    encaixando {len(imagens)} imagens de apoio (Claude)…")
-            encaixe = apoio.decidir(frases, d.manter, imagens, cfg["decisao"], cfg["marca"])
-        apoio.salvar(encaixe, saida.with_suffix(".apoio.json"))
         janelas = []
         for p in encaixe:
             if p.gancho or p.frase not in por_id:
@@ -140,7 +159,7 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
             if not tempos:
                 print(f"    aviso: {p.arquivo} não coube no vídeo")
                 continue
-            png, desfocadas, w, _ = apoio.preparar(por_nome[p.arquivo], p.ocultar, saida.with_suffix(f".apoio{k}.png"),
+            png, desfocadas, w, _ = apoio.preparar(por_nome[p.arquivo], p.ocultar, base.with_suffix(f".apoio{k}.png"),
                                                    v["largura"], v["altura"], g)
             cartoes.append(apoio.Cartao(png, tempos[0], tempos[1], (v["largura"] - w) // 2, g.get("altura_apoio", 170)))
             print(f"    {p.arquivo}: {'gancho' if p.gancho else 'apoio'} {tempos[0]:.1f}s–{tempos[1]:.1f}s, "
@@ -180,16 +199,21 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
         print("    aviso: vídeo HDR, mas este ffmpeg não tem o filtro zscale; as cores podem sair lavadas")
         hdr = None
     manter = hdr and v.get("hdr", "manter") == "manter"
-    print("5/5 renderizando…" + ((" (HDR mantido)" if manter else " (convertendo HDR para SDR)") if hdr else ""))
+    if previa:
+        print("5/5 renderizando a prévia… (540x960, zoom sem animação, áudio sem tratamento)")
+    else:
+        print("5/5 renderizando…" + ((" (HDR mantido)" if manter else " (convertendo HDR para SDR)") if hdr else ""))
     animados = sum(1 for t in trechos if t.quadro_inicial)
-    if animados:
+    if animados and not previa:
         print(f"    {animados} trechos com zoom animado")
     arquivo_fonte = cfg["marca"].get("arquivo_fonte")
     pasta_fontes = Path(arquivo_fonte).parent if arquivo_fonte else None
     ganho, filtro_audio = 0.0, ""
     a = cfg.get("audio", {})
     alvo = a.get("volume_alvo")
-    if a.get("tratamento", "voz") == "voz":
+    if previa:
+        pass                                     # a prévia é para conferir cortes, não o som
+    elif a.get("tratamento", "voz") == "voz":
         filtro_audio = render.tratamento_voz(alvo if alvo is not None else -14)
         print(f"    tratamento de voz, volume {alvo if alvo is not None else -14} LUFS")
     elif alvo is not None:
@@ -199,8 +223,62 @@ def processar(video: Path, saida: Path, cfg: dict, transcricao_json: Path | None
             print(f"    volume {atual:.1f} LUFS → {alvo} LUFS ({ganho:+.1f} dB)")
     render.renderizar(video, trechos, ass, saida, v, c["fade_audio"], (W, H), hdr, pasta_fontes, fps, ganho,
                       filtro_audio, ass_claro, g.get("nits_pergunta", 600), g.get("nits_graficos", 400),
-                      cartoes, g.get("nits_apoio", 400))
+                      cartoes, g.get("nits_apoio", 400), previa=previa)
     print(f"pronto: {saida}")
+
+
+def _olhos(video: Path, W: int, H: int, amostras: float) -> list:
+    """Detecção dos olhos, guardada ao lado do vídeo: a prévia e o final usam a mesma."""
+    import json
+
+    cache = video.with_name(video.stem + ".olhos.json")
+    chave = {"tamanho": video.stat().st_size, "W": W, "H": H, "amostras": amostras}
+    if cache.exists():
+        try:
+            dados = json.loads(cache.read_text())
+            if dados.get("chave") == chave:
+                print("    usando os olhos já detectados")
+                return [rosto.Olhos(o["t"], tuple(o["direito"]), tuple(o["esquerdo"])) for o in dados["olhos"]]
+        except (ValueError, KeyError):
+            pass
+    olhos = rosto.detectar_olhos(video, W, H, amostras)
+    try:
+        cache.write_text(json.dumps({"chave": chave, "olhos": [
+            {"t": float(o.t), "direito": [float(x) for x in o.direito], "esquerdo": [float(x) for x in o.esquerdo]}
+            for o in olhos]}))
+    except OSError:
+        pass
+    return olhos
+
+
+def _mmss(t: float) -> str:
+    return f"{int(t // 60)}:{t % 60:04.1f}"
+
+
+def _resumo_plano(frases, d, trechos, encaixe) -> str:
+    """Frases que ficam (✔, com o tempo no vídeo editado) e as que saem (✘)."""
+    linhas = ["", "plano da edição:"]
+    saem = decisao.palavras_cortadas(frases, d.cortes_parciais)
+    for f in frases:
+        if f.id in d.manter:
+            ficam = [p for k, p in enumerate(f.palavras) if (f.id, k) not in saem] or f.palavras
+            t = plano.remapear_tempo((ficam[0].inicio + ficam[0].fim) / 2, trechos)
+            quando = _mmss(t) if t is not None else "?"
+            texto = " ".join(p.texto if (f.id, k) not in saem else f"[{p.texto}]" for k, p in enumerate(f.palavras))
+            linhas.append(f"  ✔ {f.id:>2} {quando:>6}  {texto}")
+        else:
+            linhas.append(f"  ✘ {f.id:>2} {'':>6}  {f.texto}")
+    if d.titulo:
+        linhas.append(f"  título: {d.titulo}")
+    for el in d.elementos:
+        linhas.append(f"  cartão ({el['tipo']}) na frase {el['frase']}: {el['texto']}")
+    for c in d.correcoes:
+        linhas.append(f"  correção na frase {c['frase']}: {c['errado']} → {c['certo']}")
+    for p in encaixe:
+        onde = "gancho (abre o vídeo)" if p.gancho else f"frase {p.frase} em \"{p.ancora}\""
+        linhas.append(f"  imagem {p.arquivo}: {onde}" + (f", desfocar {p.ocultar}" if p.ocultar else ""))
+    linhas.append("  ([palavra] = sai num corte parcial)")
+    return "\n".join(linhas)
 
 
 def medir(video: Path, cfg: dict) -> None:
@@ -230,20 +308,15 @@ def _completar_path() -> None:
         os.environ.setdefault("FONTCONFIG_FILE", str(bin_programa / "fonts.conf"))
 
 
-def main() -> None:
-    _completar_path()
-    ap = argparse.ArgumentParser(prog="edicao")
-    ap.add_argument("--config", type=Path, help="arquivo de configuração (padrão: config.toml)")
-    sub = ap.add_subparsers(dest="comando", required=True)
-
-    p = sub.add_parser("processar", help="edita um vídeo")
+def _argumentos_edicao(p) -> None:
     p.add_argument("video", type=Path)
     p.add_argument("-o", "--saida", type=Path)
     p.add_argument("--modelo", help="sobrepõe o modelo de transcrição da configuração")
     p.add_argument("--transcricao-json", type=Path, help="usa uma transcrição já salva")
     p.add_argument("--sem-claude", action="store_true", help="pula a decisão do Claude (só corta silêncios)")
     p.add_argument("--decisao-json", type=Path, help="reaproveita a decisão salva de uma edição anterior")
-    p.add_argument("--album", help="põe o editado neste álbum do Fotos (padrão: [saida] album da configuração)")
+    p.add_argument("--refazer", action="store_true",
+                   help="transcreve e decide de novo, mesmo havendo plano salvo para este vídeo")
     p.add_argument("--titulo", help="título do Reels no início (no lugar do sugerido pelo Claude)")
     p.add_argument("--sem-titulo", action="store_true", help="sem título no início")
     p.add_argument("--pergunta", default="", help="abre com a caixinha de pergunta do Instagram (no lugar do título)")
@@ -251,6 +324,21 @@ def main() -> None:
                    help="material de apoio: prints e imagens que o Claude encaixa no vídeo")
     p.add_argument("--apoio-json", type=Path, help="reaproveita o encaixe salvo do material de apoio")
     p.add_argument("--sem-graficos", action="store_true", help="sem elementos gráficos durante a fala")
+
+
+def main() -> None:
+    _completar_path()
+    ap = argparse.ArgumentParser(prog="edicao")
+    ap.add_argument("--config", type=Path, help="arquivo de configuração (padrão: config.toml)")
+    sub = ap.add_subparsers(dest="comando", required=True)
+
+    p = sub.add_parser("processar", help="edita um vídeo")
+    pl = sub.add_parser("planejar", help="decide a edição e confere os cortes, sem renderizar")
+    for q in (p, pl):
+        _argumentos_edicao(q)
+    p.add_argument("--previa", action="store_true",
+                   help="prévia rápida (540x960, sem zoom animado) para conferir antes do final")
+    p.add_argument("--album", help="põe o editado neste álbum do Fotos (padrão: [saida] album da configuração)")
 
     m = sub.add_parser("medir", help="mede a velocidade da transcrição neste Mac")
     m.add_argument("video", type=Path)
@@ -273,15 +361,36 @@ def main() -> None:
     if args.modelo:
         cfg["transcricao"]["modelo"] = args.modelo
 
-    if args.comando == "processar":
+    if args.comando in ("processar", "planejar"):
         if args.sem_claude:
             cfg["decisao"]["backend"] = "nenhum"
         if args.sem_graficos:
             cfg["graficos"]["elementos"] = False
-        saida = args.saida or args.video.with_name(args.video.stem + "_editado.mp4")
-        processar(args.video, saida, cfg, args.transcricao_json, "" if args.sem_titulo else args.titulo, args.pergunta, args.decisao_json,
-                  args.apoio, args.apoio_json)
+        final = args.saida or args.video.with_name(args.video.stem + "_editado.mp4")
+        previa = args.comando == "processar" and args.previa
+        saida = final.with_name(final.stem + "_previa" + final.suffix) if previa else final
+        # O que já foi decidido para este vídeo (pelo planejar ou por uma prévia) é reaproveitado:
+        # mudar só a legenda ou um cartão não refaz a transcrição nem a decisão. --refazer ignora.
+        salvos = {}
+        if not args.refazer:
+            for nome, sufixo in (("transcricao_json", ".transcricao.json"), ("decisao_json", ".decisao.json"),
+                                 ("apoio_json", ".apoio.json")):
+                arquivo = final.with_suffix(sufixo)
+                if getattr(args, nome) is None and arquivo.exists() and (nome != "apoio_json" or args.apoio):
+                    salvos[nome] = arquivo
+                    print(f"reaproveitando {arquivo.name} (--refazer para decidir de novo)")
+            if "transcricao_json" not in salvos and args.transcricao_json is None:
+                salvos.pop("decisao_json", None)     # a decisão vale só para a transcrição dela
+                salvos.pop("apoio_json", None)
+        processar(args.video, saida, cfg, args.transcricao_json or salvos.get("transcricao_json"),
+                  "" if args.sem_titulo else args.titulo, args.pergunta,
+                  args.decisao_json or salvos.get("decisao_json"), args.apoio,
+                  args.apoio_json or salvos.get("apoio_json"), so_planejar=args.comando == "planejar", previa=previa)
+        if args.comando == "planejar":
+            return
         album = args.album if args.album is not None else cfg.get("saida", {}).get("album", "")
+        if previa:
+            album = cfg.get("saida", {}).get("album_previas", "") if args.album is None else args.album
         if album:
             print(f"pondo no álbum \"{album}\" do Fotos…")
             fotos.importar(saida, album)
