@@ -219,6 +219,23 @@ legenda adiantada, tentativas erradas no meio e véu escuro no HDR. Antes de ent
 - Avisos inofensivos: `ffv1 ... bytestream end mismatching` ao ler os trechos animados e
   `non monotonically increasing dts` do muxer null ao decodificar a saída.
 
+- 09/11 (IMG_4539 caixinha + print da ATA; IMG_4544 comentário de seguidora):
+  - Tomada refeita escondida SEM palavra esticada: o small (vídeo inteiro) e o large-v3 juntaram
+    as duas tentativas numa frase com os tempos da 1ª; a 2ª ficou como 3 s de voz sem palavra e o
+    editor manteve a abandonada. Isolado (só o trecho), o small separou as duas. Hoje a checagem
+    acusa "voz sem palavra"; a correção ainda é à mão (palavras da 2ª tentativa na transcrição e
+    `manter` trocado na decisão).
+  - Avatar em desenho (não foto) não é achado pelo Vision: desfocar à mão no print antes de
+    editar. O usuário quer nome de usuário E foto de perfil desfocados.
+  - Print atrás da pessoa (pedido do usuário, gostou): o print no quadrante superior direito,
+    coberto em parte pela cabeça, até o fim da explicação. Feito fora do editor: render A (sem o
+    cartão) e B (com o cartão), máscara de pessoa do Vision quadro a quadro
+    (`VNGeneratePersonSegmentationRequest.alloc().initWithCompletionHandler_(None)`; `init()` é
+    NS_UNAVAILABLE) sobre quadros tonemapeados, e `alphamerge` de A sobre B só na janela, com o
+    encoder de `_codificacao`. Ainda não é opção do editor.
+  - Ele fala pausado: cortar silêncios leva 2:18 a 1:16 sem perder conteúdo; não é erro.
+  - Mantém a posição padrão da caixinha e o zoom dinâmico padrão (pediu para não mexer).
+
 ## Cuidados técnicos
 
 - Corte (desde 28/10/2026, IMG_4038 saiu com erros e repetições): o que fica é a fala das palavras
