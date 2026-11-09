@@ -262,6 +262,9 @@ def remapear(palavras: list[Palavra], trechos: list[Trecho]) -> list[Palavra]:
     return resultado
 
 
+ESTENDER = 0.3
+
+
 def aparar_silencio(trechos: list[Trecho], envelope, por_segundo: int = 100,
                     antes: float = 0.06, depois: float = 0.12, palavras=None) -> None:
     """Tira o silêncio nas bordas de cada bloco de fala (o Whisper marca o início da primeira
@@ -291,6 +294,21 @@ def aparar_silencio(trechos: list[Trecho], envelope, por_segundo: int = 100,
                     p.inicio = novo
             t.inicio = novo
         if corte_depois:
+            # O Whisper às vezes marca o fim da última palavra antes de ela acabar (o "agora?" da
+            # pergunta, IMG_4539): se a voz continua, o trecho vai até ela parar, até ESTENDER s,
+            # sem passar do início da palavra seguinte nem do próximo trecho.
+            teto = t.fim + ESTENDER
+            if i + 1 < len(trechos):
+                teto = min(teto, trechos[i + 1].inicio)
+            seguintes = [p.inicio for p in palavras or [] if p.inicio >= t.fim - 0.01]
+            if seguintes:
+                teto = min(teto, min(seguintes) - 0.02)
+            k = b
+            while k < min(int(teto * por_segundo), len(envelope)) and envelope[k] > limiar:
+                k += 1
+            if k > b:
+                t.fim = min(k / por_segundo + depois, teto)
+                continue
             novo = min(t.fim, (a + acima[-1] + 1) / por_segundo + depois)
             for p in palavras or []:
                 if p.inicio < novo < p.fim <= t.fim + 0.5:

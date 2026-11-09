@@ -448,6 +448,23 @@ def test_aparar_silencio_nas_bordas_dos_cortes():
     assert trechos[2].inicio == pytest.approx(2.94)            # fala baixa preservada
 
 
+def test_fim_da_frase_vai_ate_a_voz_parar():
+    # O Whisper marcou o fim de "agora?" 0,2 s antes de a voz parar (IMG_4539, 09/11/2026).
+    import numpy as np
+    env = np.full(1000, -75.0)
+    env[100:200] = -20                         # "E agora?" de 1,0 a 2,0 s
+    env[600:700] = -20                         # próxima palavra, já em outro trecho
+    trechos = [plano.Trecho(0.9, 1.8), plano.Trecho(5.9, 7.1)]
+    plano.aparar_silencio(trechos, env, palavras=[Palavra("agora?", 1.2, 1.72), Palavra("vamos", 6.0, 6.4)])
+    assert trechos[0].fim == pytest.approx(2.1)                # a voz até 2,0 s, no máximo +0,3 s
+    # Sem invadir a palavra seguinte, mesmo com voz contínua.
+    env2 = np.full(500, -75.0)
+    env2[100:400] = -20
+    t = [plano.Trecho(0.9, 1.8)]
+    plano.aparar_silencio(t, env2, palavras=[Palavra("agora", 1.2, 1.72), Palavra("sai", 1.9, 2.3)])
+    assert t[0].fim == pytest.approx(1.88)
+
+
 def test_ancora_do_cartao_prefere_a_versao_que_fica():
     frases = decisao.dividir_em_frases(_palavras(
         ("cisto", 0.0, 0.3), ("benigno", 0.3, 0.8), ("e", 0.9, 1.0),
