@@ -3,7 +3,7 @@ import subprocess
 import numpy as np
 import pytest
 
-from edicao import checagem, config, plano
+from edicao import checagem, config, midia, plano
 from edicao.cli import processar
 from edicao.transcricao import Palavra, salvar
 
@@ -86,8 +86,6 @@ def test_planejar_nao_renderiza_e_previa_sai_menor(video, tmp_path):
 
     previa = tmp_path / "editado_previa.mp4"
     processar(video, previa, cfg, transc, previa=True)
-    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
-                        "stream=width,height", "-of", "csv=p=0", str(previa)], capture_output=True, text=True)
-    assert r.stdout.strip() == "540,960"
+    assert midia.dimensoes(previa) == (540, 960)
     # Os arquivos de trabalho da prévia ficam com o nome do final, para ele reaproveitar.
     assert not (tmp_path / "editado_previa.decisao.json").exists()
