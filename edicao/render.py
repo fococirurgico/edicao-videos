@@ -371,13 +371,20 @@ def renderizar(
             filtros.append(f"[vout]scale={larg // 2}:{alt // 2}[vprevia]")
             final = "[vprevia]"
 
-        subprocess.run(
-            ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *entradas,
-             "-filter_complex", ";".join(filtros), "-map", final, "-map", "[ac]",
-             *_codificacao(cfg_video, hdr_saida, fps),
-             "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", str(saida)],
-            check=True,
-        )
+        comando = lambda cv: ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *entradas,
+                              "-filter_complex", ";".join(filtros), "-map", final, "-map", "[ac]",
+                              *_codificacao(cv, hdr_saida, fps),
+                              "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", str(saida)]
+        try:
+            subprocess.run(comando(cfg_video), check=True)
+        except subprocess.CalledProcessError:
+            if not previa:
+                raise
+            # Sem o codificador do chip (Mac Intel, ou sessão por SSH no Mac Mini: "cannot create
+            # compression session"): a prévia cai para o software, no modo mais rápido.
+            print("    codificador do chip indisponível; prévia pelo software")
+            subprocess.run(comando({**cfg_video, "codec": "libx264", "crf": 23, "preset": "veryfast",
+                                    "codec_hdr": "libx265", "crf_hdr": 24, "preset_hdr": "ultrafast"}), check=True)
     _zerar_rotacao(saida, hevc=bool(hdr_saida))
 
 
