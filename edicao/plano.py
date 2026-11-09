@@ -1,5 +1,6 @@
 """Plano de cortes: quais trechos do vídeo original ficam no vídeo final."""
 
+import re
 from dataclasses import dataclass
 
 from .transcricao import Palavra
@@ -52,12 +53,21 @@ def trechos_mantidos(
 
 
 # Palavra mais longa que isso esconde fala não transcrita antes dela; dela só vale o fim.
+# O limite cresce com o tamanho da palavra: "hipertireoidismo" dita normalmente passa de 1 s,
+# e a regra cortava o "hiper" (IMG_4544, 09/11/2026).
 PALAVRA_MAXIMA = 1.0
+POR_LETRA = 0.09
 FIM_DA_PALAVRA = 0.45
 
 
+def _limite_palavra(texto: str) -> float:
+    return max(PALAVRA_MAXIMA, POR_LETRA * len(re.sub(r"[^\w]", "", texto)))
+
+
 def _inicio_real(p) -> float:
-    return max(p.inicio, p.fim - FIM_DA_PALAVRA) if p.fim - p.inicio > PALAVRA_MAXIMA else p.inicio
+    if p.fim - p.inicio > _limite_palavra(p.texto):
+        return max(p.inicio, p.fim - FIM_DA_PALAVRA)
+    return p.inicio
 
 
 def aplicar_decisao(trechos: list[Trecho], frases, decisao, folga: float,
@@ -65,7 +75,7 @@ def aplicar_decisao(trechos: list[Trecho], frases, decisao, folga: float,
     """Mantém só a fala das palavras que ficam e aplica o zoom das frases escolhidas.
 
     O que fica é o áudio coberto pelas palavras das frases mantidas (menos os cortes parciais). Fala que a transcrição não captou sai: costuma ser a tentativa
-    errada que o Whisper pulou. Uma palavra longa demais (mais de PALAVRA_MAXIMA s) esconde
+    errada que o Whisper pulou. Uma palavra longa demais para o seu tamanho (`_limite_palavra`) esconde
     fala não transcrita antes dela; dela só fica o fim.
     """
     from .decisao import palavras_cortadas

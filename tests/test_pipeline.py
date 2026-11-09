@@ -146,6 +146,15 @@ def test_palavra_esticada_mantem_so_o_fim():
     assert [(round(t.inicio, 2), round(t.fim, 2)) for t in trechos] == [(0.0, 0.88), (3.55, 4.58)]
 
 
+def test_palavra_comprida_dita_devagar_fica_inteira():
+    # "hipertireoidismo" com 1,06 s é fala normal, não tomada escondida (IMG_4544, 09/11/2026).
+    frases = decisao.dividir_em_frases(_palavras(("sabe,", 7.66, 7.86), ("hipertireoidismo", 7.86, 8.92),
+                                                 ("é", 8.92, 9.14)))
+    d = decisao.Decisao(manter=[1], destaques=[], zoom={})
+    trechos = plano.aplicar_decisao([plano.Trecho(7.0, 10.0)], frases, d, folga=0.08)
+    assert [(round(t.inicio, 2), round(t.fim, 2)) for t in trechos] == [(7.58, 9.22)]
+
+
 def test_decisao_sem_backend_mantem_tudo():
     frases = decisao.dividir_em_frases(_palavras(("a.", 0, 0.5), ("b.", 1, 1.5)))
     d = decisao.decidir(frases, {"backend": "nenhum"})
