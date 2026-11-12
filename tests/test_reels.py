@@ -440,3 +440,12 @@ def test_legenda_e_cartoes_no_brilho_configurado_no_hdr(tmp_path):
                         "-f", "rawvideo", "-pix_fmt", "yuv420p10le", "-"], capture_output=True, check=True)
     y = np.frombuffer(r.stdout[:180 * 320 * 2], np.uint16).reshape(320, 180)
     assert abs(int(np.median(y[20:50, 20:50])) - 815) < 15     # branco a 400 nits
+
+
+def test_legenda_sem_maiusculas():
+    # Vídeo do Foco (12/11/2026): legenda como foi dita, sem caixa alta.
+    cfg = config.carregar()
+    ass = legendas.gerar_ass(_palavras(("Instagram,", 0.0, 0.5), ("bastidores", 0.6, 1.1)),
+                             {**cfg["legendas"], "maiusculas": False}, cfg["marca"], 1080, 1920)
+    eventos = [l for l in ass.splitlines() if l.startswith("Dialogue")]
+    assert [e.rsplit("}", 1)[-1] for e in eventos] == ["Instagram,", "bastidores"]

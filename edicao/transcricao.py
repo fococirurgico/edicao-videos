@@ -20,6 +20,9 @@ class Palavra:
     texto: str
     inicio: float
     fim: float
+    # Só nas palavras de uma correção: se o trecho trocado tinha palavra longa demais (fala
+    # escondida). None = medir pela própria palavra (ver plano._e_longa).
+    longa: bool | None = None
 
 
 def _mlx_disponivel() -> bool:

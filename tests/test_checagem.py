@@ -89,3 +89,18 @@ def test_planejar_nao_renderiza_e_previa_sai_menor(video, tmp_path):
     assert midia.dimensoes(previa) == (540, 960)
     # Os arquivos de trabalho da prévia ficam com o nome do final, para ele reaproveitar.
     assert not (tmp_path / "editado_previa.decisao.json").exists()
+
+
+def test_correcao_que_alonga_palavra_nao_corta_o_comeco():
+    # IMG_4557: "com de mais úsculo" → "com D maiúsculo" deixava "maiúsculo" com 1,01 s, e o editor
+    # tratava como fala escondida (só os últimos 0,45 s entravam).
+    from edicao import decisao
+    palavras = [Palavra("com", 111.42, 111.82), Palavra("de", 111.82, 112.16),
+                Palavra("mais", 112.16, 112.44), Palavra("úsculo", 112.44, 112.88)]
+    f = decisao.Frase(1, "com de mais úsculo", palavras[0].inicio, palavras[-1].fim, palavras)
+    novas = decisao.aplicar_correcoes([f], [{"frase": 1, "errado": "com de mais úsculo", "certo": "com D maiúsculo"}])
+    assert [p.texto for p in novas] == ["com", "D", "maiúsculo"]
+    assert checagem.palavras_longas(novas) == []
+    # Palavra que já era longa na transcrição continua longa depois de corrigida.
+    f2 = decisao.Frase(2, "foi", 0, 3.0, [Palavra("foi", 0, 3.0)])
+    assert len(checagem.palavras_longas(decisao.aplicar_correcoes([f2], [{"frase": 2, "errado": "foi", "certo": "foi"}]))) == 1

@@ -69,7 +69,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             fim = bloco[i + 1].inicio if i + 1 < len(bloco) else atual.fim
             partes = []
             for j, p in enumerate(bloco):
-                texto = _escapar(p.texto.upper())
+                texto = _escapar(p.texto.upper() if cfg.get("maiusculas", True) else p.texto)
                 if j == i:
                     partes.append(f"{{\\c{cor_atual}}}{texto}{{\\r}}")
                 elif _normalizar(p.texto) in destaques:
@@ -100,7 +100,7 @@ def _uma_por_vez(palavras: list[Palavra], destaques: set[str], cfg: dict) -> lis
                    f"\\t(70,150,1.5,\\fscx{final}\\fscy{final})")
         elif final != 100:
             pop = f"\\fscx{final}\\fscy{final}"
-        texto = _escapar(p.texto.upper())
+        texto = _escapar(p.texto.upper() if cfg.get("maiusculas", True) else p.texto)
         eventos.append(f"Dialogue: 0,{_tempo(p.inicio)},{_tempo(fim)},Padrao,,0,0,0,,"
                        + (f"{{{pop}}}" if pop else "") + texto)
     return eventos

@@ -110,6 +110,8 @@ sombra = 3
 # 1 = só a palavra dita aparece, em cor_texto. Mais de 1 = blocos com a palavra atual em
 # cor_palavra_atual e os destaques em cor_destaque.
 palavras_por_linha = 1
+# true = legenda toda em maiúsculas; false = como foi dita (12/11/2026, vídeo do Foco).
+maiusculas = true
 # Entrada com "pop" de cada palavra (só no modo de uma palavra por vez).
 animacao = true
 # Tamanho das palavras de destaque, em % do normal (modo de uma palavra por vez).
@@ -121,9 +123,13 @@ margem_inferior = 520
 # Título do Reels num cartão no início (sugerido pelo Claude; `--titulo` ou `--sem-titulo`).
 titulo = true
 duracao_titulo = 3.2
-tamanho_titulo = 100
+# 130 desde 11/11/2026: com 100, o título ficava pequeno demais na miniatura da grade do perfil.
+tamanho_titulo = 130
 # Altura do centro do título e dos cartões, em pixels a partir do topo (vídeo 1080x1920).
 altura_titulo = 290
+# O título e a caixinha descem o necessário para caber inteiros na grade do perfil (recorte 3:4 do
+# meio do vídeo), com esta folga em pixels; a capa do Reels na grade é um quadro com o título.
+margem_grade = 40
 altura_elementos = 285
 # Caixinha de pergunta do Instagram no início (`--pergunta "..."`), no lugar do título.
 duracao_pergunta = 4.5

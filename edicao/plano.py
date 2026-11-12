@@ -64,8 +64,17 @@ def _limite_palavra(texto: str) -> float:
     return max(PALAVRA_MAXIMA, POR_LETRA * len(re.sub(r"[^\w]", "", texto)))
 
 
+def _e_longa(p) -> bool:
+    """Palavra longa demais para o tamanho dela. Nas que vêm de uma correção, vale o que a
+    transcrição tinha: "com de mais úsculo" → "com D maiúsculo" deixava "maiúsculo" com 1,01 s e o
+    editor cortava o "D mai" (IMG_4557, 11/11/2026)."""
+    if getattr(p, "longa", None) is not None:
+        return p.longa
+    return p.fim - p.inicio > _limite_palavra(p.texto)
+
+
 def _inicio_real(p) -> float:
-    if p.fim - p.inicio > _limite_palavra(p.texto):
+    if _e_longa(p):
         return max(p.inicio, p.fim - FIM_DA_PALAVRA)
     return p.inicio
 

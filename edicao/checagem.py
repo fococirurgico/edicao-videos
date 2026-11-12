@@ -101,7 +101,7 @@ def palavras_cortadas(trechos, palavras, envelope, por_segundo: int = 100,
 
 
 def palavras_longas(palavras) -> list:
-    return [p for p in palavras if p.fim - p.inicio > plano._limite_palavra(p.texto)]
+    return [p for p in palavras if plano._e_longa(p)]
 
 
 def _retranscrever(video: Path, ini: float, fim: float, cfg_transcricao: dict) -> str:

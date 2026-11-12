@@ -18,6 +18,7 @@ import tempfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from . import plano
 from .transcricao import Palavra
 
 
@@ -332,16 +333,20 @@ def aplicar_correcoes(frases: list[Frase], correcoes: list[dict]) -> list[Palavr
                 trecho = palavras[i:i + len(alvo)]
                 novas = c["certo"].split()
                 pontuacao = re.search(r"[^\w]*$", trecho[-1].texto).group()
-                if pontuacao and not novas[-1].endswith(pontuacao):
+                # A correção que já traz pontuação própria ("convencional,") fica com ela.
+                if pontuacao and not re.search(r"[^\w]$", novas[-1]):
                     novas[-1] += pontuacao
                 ini, fim = trecho[0].inicio, trecho[-1].fim
                 pesos = [len(n) for n in novas]
                 total, acumulado = sum(pesos), 0
+                tinha_longa = any(plano._e_longa(p) for p in trecho)
                 substitutas = []
                 for n, peso in zip(novas, pesos):
                     a = ini + (fim - ini) * acumulado / total
                     acumulado += peso
-                    substitutas.append(Palavra(n, a, ini + (fim - ini) * acumulado / total))
+                    nova = Palavra(n, a, ini + (fim - ini) * acumulado / total)
+                    nova.longa = tinha_longa and plano._e_longa(Palavra(n, nova.inicio, nova.fim))
+                    substitutas.append(nova)
                 palavras[i:i + len(alvo)] = substitutas
         resultado += palavras
     return resultado

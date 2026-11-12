@@ -131,6 +131,23 @@ def quebrar(texto: str, tamanho: float, largura_max: float, arquivo_fonte: str, 
     return linhas + ([atual] if atual else [])
 
 
+def quebrar_equilibrado(texto: str, tamanho: float, largura_max: float, arquivo_fonte: str,
+                        peso: int) -> list[str]:
+    """Mesmo número de linhas da quebra simples, mas com as linhas de largura parecida: a quebra
+    simples deixava uma palavra sozinha embaixo ("Tirei a tireoide de um / menino")."""
+    linhas = quebrar(texto, tamanho, largura_max, arquivo_fonte, peso)
+    if len(linhas) < 2:
+        return linhas
+    baixo, alto = 0.0, largura_max
+    for _ in range(20):
+        meio = (baixo + alto) / 2
+        if len(quebrar(texto, tamanho, meio, arquivo_fonte, peso)) <= len(linhas):
+            alto = meio
+        else:
+            baixo = meio
+    return quebrar(texto, tamanho, alto, arquivo_fonte, peso)
+
+
 # Formas (desenho ASS em pixels, origem no canto superior esquerdo da forma)
 
 def _retangulo(w: float, h: float, r: float) -> str:
@@ -269,6 +286,8 @@ class Desenhista:
         estado = montar(el)
         y = {"titulo": self.cfg["altura_titulo"],
              "pergunta": self.cfg.get("altura_pergunta", 520)}.get(el.tipo, self.cfg["altura_elementos"])
+        if el.tipo in ("titulo", "pergunta"):
+            y = self.dentro_da_grade(y, self._altura_caixa)
         cx = self.W / 2
         linhas = []
         primeiro = math.ceil(el.inicio * self.fps)
@@ -282,6 +301,16 @@ class Desenhista:
                 linhas.append(f"Dialogue: {c.camada + 10},{_tempo(ini)},{_tempo(fim)},Grafico,,0,0,0,,"
                               + _linha(c, cx + dx, y + dy, escala, opac))
         return linhas
+
+    def dentro_da_grade(self, y: float, altura_caixa: float) -> float:
+        """Centro do título/caixinha que deixa a caixa inteira na área que a grade do perfil do
+        Instagram mostra: um recorte 3:4 no meio do vídeo 9:16 (em 1080x1920, de y=240 a 1680).
+        No y=290 padrão, um título de 2 ou 3 linhas saía cortado em cima na grade (11/11/2026)."""
+        margem = self.cfg.get("margem_grade", 40)
+        topo = (self.H - self.W * 4 / 3) / 2 + margem
+        base = self.H - topo
+        y = max(y, topo + altura_caixa / 2)
+        return min(y, base - altura_caixa / 2)
 
     # Entrada, flutuação leve e saída, comuns a todos
 
@@ -298,9 +327,10 @@ class Desenhista:
 
     def _titulo(self, el: Elemento):
         tam, pad_x, pad_y = self.cfg["tamanho_titulo"], 54, 34
-        linhas = quebrar(el.texto, tam, self.W * 0.78, self.fonte, 800)
+        linhas = quebrar_equilibrado(el.texto, tam, self.W * 0.78, self.fonte, 800)
         larg = max(largura_texto(l, tam, self.fonte, 800) for l in linhas) + 2 * pad_x
         alt = len(linhas) * tam + 2 * pad_y + 14
+        self._altura_caixa = alt
         fundo = _retangulo(larg, alt, 30)
 
         def estado(rel, dur):
@@ -328,6 +358,7 @@ class Desenhista:
         linhas = quebrar(el.texto, tam, larg - 2 * pad, medida, 700)
         corpo = len(linhas) * tam * 1.12 + 2 * pad
         alt = faixa + corpo
+        self._altura_caixa = alt
         topo = -alt / 2
         convite = el.detalhe or "Faça uma pergunta"
         total = sum(len(l) for l in linhas)
