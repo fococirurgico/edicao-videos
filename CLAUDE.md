@@ -236,6 +236,44 @@ legenda adiantada, tentativas erradas no meio e véu escuro no HDR. Antes de ent
   - Ele fala pausado: cortar silêncios leva 2:18 a 1:16 sem perder conteúdo; não é erro.
   - Mantém a posição padrão da caixinha e o zoom dinâmico padrão (pediu para não mexer).
 
+- 11/11 (IMG_4555 caixinha + print da OPAS; IMG_4557 título + print do ENT Today):
+  - Grade do perfil do Instagram: mostra o recorte 3:4 do meio do vídeo 9:16 (y 240 a 1680 em
+    1080x1920). O título e a caixinha agora descem o necessário para caber inteiros nele
+    (`graficos.dentro_da_grade`, `margem_grade = 40`), o título passou a 130 e quebra em linhas
+    equilibradas (`quebrar_equilibrado`: "Tirei a tireoide / de um menino", não uma palavra solta
+    na 2ª linha). A capa do Reels é um quadro com o título/caixinha já completos (a caixinha vai
+    sendo digitada: escolher depois de ~3,5 s).
+  - Correção que alonga palavra cortava o começo: "com de mais úsculo" → "com D maiúsculo" deu
+    1,01 s a "maiúsculo", e a regra da palavra longa (só os últimos 0,45 s valem) cortou "D mai".
+    Agora a substituta só é tratada como longa se o trecho original tinha palavra longa
+    (`Palavra.longa`, `plano._e_longa`; teste `test_correcao_que_alonga_palavra_nao_corta_o_comeco`).
+    Também: correção que já traz pontuação não ganha a da original ("CONVENCIONAL,.").
+  - O encaixe do Claude trocou os dois prints entre os vídeos (cada vídeo recebeu os dois);
+    conferir e editar o `*.apoio.json` à mão quando houver prints de vídeos diferentes no álbum.
+  - Corte parcial errado: o Claude cortou "não é o mais convencional" como tentativa repetida, mas
+    era aposto ("um câncer que não é o mais convencional, não é o mais comum"). Começo abandonado
+    antes de pausa longa ("por a doença" + 10 s) passou: virou corte parcial à mão. Ler os
+    `cortes_parciais` no plano procurando os dois casos.
+  - Print atrás + pessoa deslocada para o lado (pedido do usuário): na janela do print, o
+    enquadramento leva os olhos para ~0,37 da largura (`rosto.enquadrar` e `plano.alinhar_quadros`
+    remendados no script do render A/B, dividindo o trecho no início do print). Limite: zoom máximo
+    1,35. Com 1,6 ele fica maior e a cabeça cobre o print do mesmo jeito. Quando ele grava à direita
+    do centro (IMG_4557), o deslocamento é pequeno (olhos em ~0,46); a solução é gravar um pouco à
+    esquerda. Ainda não é opção do editor (junto com o print atrás, candidata a `--apoio-atras`).
+- 12/11 (IMG_4563, vídeo do Foco Cirúrgico, outra marca): estilo pedido e aprovado, diferente dos
+  Reels do consultório. Configuração à parte usada com `edicao --config foco.toml` (mesclada por
+  cima da do computador): só legenda, no azul do manual (#283F51), contorno branco de 2 px, sem
+  sombra, uma palavra por vez, SF Pro Display Regular (negrito=false), tamanho 92 e
+  `[legendas] maiusculas = false` (opção nova; o padrão continua em maiúsculas); sem título
+  (`--sem-titulo`), sem cartões (`--sem-graficos`) e sem zoom (`zoom_maximo = 1.0`,
+  `salto_nos_cortes = 0`, `plano_maximo = 0`). Monograma f::c em marca d'água no vídeo todo com
+  `ferramentas/marca_dagua.py`, depois do render (prévia e final). Manual de marca do Foco: cores
+  #283f51, #e2a81b, #c5242f, #ce5e20, #457e7b; fonte de comunicação Josefin Sans (o usuário
+  preferiu SF Pro).
+  - Legenda azul-escura sem contorno some na camisa e na parede: o contorno branco fino é
+    necessário. A marca d'água branca a 35% fica discreta sobre parede clara (aprovada assim,
+    aumentada de 150 para 210 px).
+
 ## Cuidados técnicos
 
 - Corte (desde 28/10/2026, IMG_4038 saiu com erros e repetições): o que fica é a fala das palavras
