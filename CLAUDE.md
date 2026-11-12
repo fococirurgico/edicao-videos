@@ -270,6 +270,11 @@ legenda adiantada, tentativas erradas no meio e véu escuro no HDR. Antes de ent
   `ferramentas/marca_dagua.py`, depois do render (prévia e final). Manual de marca do Foco: cores
   #283f51, #e2a81b, #c5242f, #ce5e20, #457e7b; fonte de comunicação Josefin Sans (o usuário
   preferiu SF Pro).
+  - "neurocirurgiões" saiu sem o "neuro" no começo de frase depois de um corte: o Whisper marcou
+    a palavra 0,48 s depois do começo da voz. `aparar_silencio` agora volta o início do trecho até
+    a voz começar (até 0,6 s, `ESTENDER_INICIO`), sem passar da palavra anterior, e a legenda
+    acompanha. A checagem não acusou: palavra cortada no começo, por atraso do Whisper, ainda não
+    é suspeita da checagem.
   - Legenda azul-escura sem contorno some na camisa e na parede: o contorno branco fino é
     necessário. A marca d'água branca a 35% fica discreta sobre parede clara (aprovada assim,
     aumentada de 150 para 210 px).

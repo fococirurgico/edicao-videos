@@ -104,3 +104,20 @@ def test_correcao_que_alonga_palavra_nao_corta_o_comeco():
     # Palavra que já era longa na transcrição continua longa depois de corrigida.
     f2 = decisao.Frase(2, "foi", 0, 3.0, [Palavra("foi", 0, 3.0)])
     assert len(checagem.palavras_longas(decisao.aplicar_correcoes([f2], [{"frase": 2, "errado": "foi", "certo": "foi"}]))) == 1
+
+
+def test_frase_volta_ate_a_voz_comecar():
+    # IMG_4563 (12/11/2026): o Whisper pôs "neurocirurgiões" 0,48 s depois do começo da voz, e o
+    # corte levava o "neuro". O trecho volta até a voz começar; a legenda acompanha.
+    import numpy as np
+    from edicao.plano import Trecho, aparar_silencio
+    from edicao.transcricao import Palavra
+    env = np.full(1000, -70.0)
+    env[100:300] = -20      # frase anterior
+    env[480:700] = -20      # voz real começa em 4,8 s
+    trechos = [Trecho(1.0, 3.1, 1.0), Trecho(5.2, 7.0, 1.0)]
+    pal = [Palavra("antes", 1.0, 3.0), Palavra("neurocirurgiões", 5.28, 5.8), Palavra("fim", 5.8, 6.9)]
+    aparar_silencio(trechos, env, palavras=pal)
+    assert 4.7 <= trechos[1].inicio <= 4.8
+    assert pal[1].inicio <= 4.81
+    assert trechos[0].fim <= 3.2          # a frase anterior não é afetada

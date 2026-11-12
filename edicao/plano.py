@@ -272,6 +272,7 @@ def remapear(palavras: list[Palavra], trechos: list[Trecho]) -> list[Palavra]:
 
 
 ESTENDER = 0.3
+ESTENDER_INICIO = 0.6
 
 
 def aparar_silencio(trechos: list[Trecho], envelope, por_segundo: int = 100,
@@ -296,6 +297,28 @@ def aparar_silencio(trechos: list[Trecho], envelope, por_segundo: int = 100,
         acima = np.nonzero(envelope[a:b] > limiar)[0]
         if len(acima) == 0:
             continue
+        if corte_antes and envelope[min(a, len(envelope) - 1)] > limiar:
+            # O Whisper às vezes marca o início da primeira palavra depois de ela começar
+            # ("neurocirurgiões" 0,48 s atrasado, IMG_4563, 12/11/2026): se já há voz na borda, o
+            # trecho volta até ela começar, até ESTENDER_INICIO s, sem passar do trecho nem da
+            # palavra anterior. A palavra que começava na borda passa a começar junto.
+            piso = t.inicio - ESTENDER_INICIO
+            if i > 0:
+                piso = max(piso, trechos[i - 1].fim)
+            anteriores = [q.fim for q in palavras or [] if q.fim <= t.inicio + 0.01]
+            if anteriores:
+                piso = max(piso, max(anteriores) + 0.02)
+            k = a
+            while k - 1 >= max(int(piso * por_segundo), 0) and envelope[k - 1] > limiar:
+                k -= 1
+            if k < a:
+                novo = max(k / por_segundo - antes, piso)
+                for q in palavras or []:
+                    if t.inicio - 0.01 <= q.inicio <= t.inicio + 0.5:
+                        q.inicio = min(q.inicio, novo + antes)
+                        break
+                t.inicio = novo
+                corte_antes = False
         if corte_antes:
             novo = max(t.inicio, (a + acima[0]) / por_segundo - antes)
             for p in palavras or []:
